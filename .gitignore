@@ -1,0 +1,10 @@
+
+.idea/
+
+
+*.exe
+*.out
+*.test
+
+
+.DS_Store
