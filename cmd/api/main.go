@@ -1,8 +1,8 @@
 package main
 
 import (
-	"Kazakh_Aliexpress/internal/app"
 	"fmt"
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/app"
 )
 
 func main() {

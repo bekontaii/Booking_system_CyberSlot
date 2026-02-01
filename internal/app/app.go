@@ -6,13 +6,15 @@ import (
 )
 
 func BookingHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Booking PC")
+	fmt.Printf("Booking PC", r.URL.Path[1:])
+}
+func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Welcome to the Home", r.URL.Path[1:])
 }
 func RunServer() {
 	http.HandleFunc("/booking", BookingHandler)
+	http.HandleFunc("/", HomeHandler)
 	fmt.Println("Server started on port 8080")
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		panic(err)
-	}
+	http.ListenAndServe(":8080", nil)
+
 }
