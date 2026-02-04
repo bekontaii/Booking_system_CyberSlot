@@ -1,81 +1,90 @@
 package user
 
 import (
-	"context"
-
-	"github.com/jackc/pgx/v5/pgxpool"
+	"errors"
+	"sync"
 )
 
+var ErrUserNotFound = errors.New("user not found")
+
+// Repository defines storage operations for users.
 type Repository interface {
-	Create(ctx context.Context, user *User) error
-	FindByUsername(ctx context.Context, username string) (*User, error)
+	Create(user User) (User, error)
+	GetAll() ([]User, error)
+	GetByID(id int) (User, error)
+	Update(id int, user User) (User, error)
+	Delete(id int) error
 }
 
-type repository struct {
-	db *pgxpool.Pool
+// InMemoryRepository stores users in memory with thread safety.
+type InMemoryRepository struct {
+	mu     sync.Mutex
+	items  map[int]User
+	nextID int
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
-	return &repository{
-		db: db,
+func NewInMemoryRepository() *InMemoryRepository {
+	return &InMemoryRepository{
+		items:  make(map[int]User),
+		nextID: 1,
 	}
 }
 
-func (r *repository) Create(ctx context.Context, user *User) error {
-	query := `
-		INSERT INTO users (
-			username,
-			email,
-			password_hash,
-			name,
-			surname
-		) VALUES ($1, $2, $3, $4, $5)
-	`
+func (r *InMemoryRepository) Create(user User) (User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	_, err := r.db.Exec(
-		ctx,
-		query,
-		user.Username,
-		user.Email,
-		user.PasswordHash,
-		user.Name,
-		user.Surname,
-	)
-
-	return err
+	user.ID = r.nextID
+	r.nextID++
+	r.items[user.ID] = user
+	return user, nil
 }
 
-func (r *repository) FindByUsername(ctx context.Context, username string) (*User, error) {
-	query := `
-		SELECT
-			id,
-			username,
-			email,
-			password_hash,
-			name,
-			surname,
-			created_at,
-			updated_at
-		FROM users
-		WHERE username = $1
-	`
+func (r *InMemoryRepository) GetAll() ([]User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	var user User
-
-	err := r.db.QueryRow(ctx, query, username).Scan(
-		&user.ID,
-		&user.Username,
-		&user.Email,
-		&user.PasswordHash,
-		&user.Name,
-		&user.Surname,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
-	if err != nil {
-		return nil, err
+	users := make([]User, 0, len(r.items))
+	for _, user := range r.items {
+		users = append(users, user)
 	}
 
-	return &user, nil
+	return users, nil
+}
+
+func (r *InMemoryRepository) GetByID(id int) (User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	user, ok := r.items[id]
+	if !ok {
+		return User{}, ErrUserNotFound
+	}
+
+	return user, nil
+}
+
+func (r *InMemoryRepository) Update(id int, user User) (User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.items[id]; !ok {
+		return User{}, ErrUserNotFound
+	}
+
+	user.ID = id
+	r.items[id] = user
+	return user, nil
+}
+
+func (r *InMemoryRepository) Delete(id int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.items[id]; !ok {
+		return ErrUserNotFound
+	}
+
+	delete(r.items, id)
+	return nil
 }

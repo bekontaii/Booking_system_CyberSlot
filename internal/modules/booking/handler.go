@@ -5,16 +5,63 @@ import (
 	"net/http"
 )
 
-func HandleBookings(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		var b Booking
-		json.NewDecoder(r.Body).Decode(&b)
-		CreateBooking(b)
-		w.WriteHeader(http.StatusCreated)
+type Handler struct {
+	service *Service
+}
+
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
+}
+
+func (h *Handler) HandleBookings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		h.handleCreate(w, r)
+	case http.MethodGet:
+		h.handleList(w, r)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
+	var req CreateBookingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON body"})
 		return
 	}
 
-	if r.Method == http.MethodGet {
-		json.NewEncoder(w).Encode(GetAll())
+	booking, err := h.service.CreateBooking(req)
+	if err != nil {
+		switch err {
+		case ErrInvalidTimeRange:
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		case ErrBookingConflict:
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "unable to create booking"})
+		}
+		return
 	}
+
+	writeJSON(w, http.StatusCreated, booking)
+}
+
+func (h *Handler) handleList(w http.ResponseWriter, r *http.Request) {
+	bookings := h.service.GetAllBookings()
+	writeJSON(w, http.StatusOK, bookings)
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+var defaultRepository = NewInMemoryRepository()
+var defaultService = NewService(defaultRepository, DefaultExpiration)
+var defaultHandler = NewHandler(defaultService)
+
+func HandleBookings(w http.ResponseWriter, r *http.Request) {
+	defaultHandler.HandleBookings(w, r)
 }
