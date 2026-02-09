@@ -2,9 +2,7 @@ package auth
 
 import (
 	"encoding/json"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
-	"time"
 )
 
 type Handler struct {
@@ -12,11 +10,8 @@ type Handler struct {
 	secret  string
 }
 
-func NewHandler(service *Service, secret string) *Handler {
-	return &Handler{
-		service: service,
-		secret:  secret,
-	}
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -24,48 +19,56 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON body"})
 		return
 	}
-	defer r.Body.Close()
 
 	if err := h.service.Register(r.Context(), req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
+
+	writeJSON(w, http.StatusCreated, MessageResponse{Message: "registered"})
 }
+
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	defer r.Body.Close()
+
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON body"})
 		return
 	}
-	user, err := h.service.Login(r.Context(), req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": user.Username,
-		"exp": time.Now().Add(time.Hour * 24).Unix(),
-	})
-	tokenString, err := token.SignedString([]byte(h.secret))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK) // или StatusCreated
-	json.NewEncoder(w).Encode(map[string]string{
-		"token": tokenString,
-	})
 
+	token, err := h.service.Login(r.Context(), req)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, TokenResponse{Token: token})
+}
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+type TokenResponse struct {
+	Token string `json:"token"`
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
 }

@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/middleware"
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/auth"
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/booking"
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/club"
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/pc"
@@ -25,15 +27,17 @@ func New() http.Handler {
 	staticDir := http.Dir(filepath.Join("web", "static"))
 	publicMux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(staticDir)))
 
-	// Public HTML pages
+	secret, expireHours := resolveJWTConfig()
+	authService := auth.NewService(secret, expireHours)
+	authHandler := auth.NewHandler(authService)
+
+	// Public HTML pages + auth endpoints
 	publicMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			renderTemplate(w, templates, "login.html")
 		case http.MethodPost:
-			// Auth module is not wired here; return a clear response for now.
-			w.WriteHeader(http.StatusNotImplemented)
-			_, _ = w.Write([]byte("login handler not implemented"))
+			authHandler.Login(w, r)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
@@ -44,9 +48,7 @@ func New() http.Handler {
 		case http.MethodGet:
 			renderTemplate(w, templates, "register.html")
 		case http.MethodPost:
-			// Auth module is not wired here; return a clear response for now.
-			w.WriteHeader(http.StatusNotImplemented)
-			_, _ = w.Write([]byte("register handler not implemented"))
+			authHandler.Register(w, r)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
@@ -87,12 +89,6 @@ func New() http.Handler {
 		_, _ = w.Write([]byte("payment handler not implemented"))
 	})
 
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		log.Println("JWT_SECRET not set; using development default")
-		secret = "dev-secret"
-	}
-
 	publicMux.Handle("/", middleware.AuthMiddleware(secret)(protectedMux))
 
 	return middleware.Logger(publicMux)
@@ -103,4 +99,24 @@ func renderTemplate(w http.ResponseWriter, templates *template.Template, name st
 	if err := templates.ExecuteTemplate(w, name, nil); err != nil {
 		http.Error(w, "template rendering error", http.StatusInternalServerError)
 	}
+}
+
+func resolveJWTConfig() (string, int) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Println("JWT_SECRET not set; using development default")
+		secret = "dev-secret"
+	}
+
+	expireHours := 24
+	if value := strings.TrimSpace(os.Getenv("JWT_EXPIRE_HOURS")); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed <= 0 {
+			log.Println("JWT_EXPIRE_HOURS invalid; using default 24h")
+		} else {
+			expireHours = parsed
+		}
+	}
+
+	return secret, expireHours
 }
