@@ -7,7 +7,7 @@ const (
 	RoleAdmin = "ADMIN"
 )
 
-type User struct {
+type User1 struct {
 	ID        int       `json:"id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
