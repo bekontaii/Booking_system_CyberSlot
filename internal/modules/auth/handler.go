@@ -7,6 +7,7 @@ import (
 
 type Handler struct {
 	service *Service
+	secret  string
 }
 
 func NewHandler(service *Service) *Handler {
