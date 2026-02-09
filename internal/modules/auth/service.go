@@ -3,18 +3,27 @@ package auth
 import (
 	"context"
 	"errors"
+	"sync"
 
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
-	repo user.Repository
+	mu             sync.Mutex
+	users          map[string]User
+	jwtSecret      string
+	jwtExpireHours int
 }
 
-func NewService(repo user.Repository) *Service {
+func NewService(secret string, expireHours int) *Service {
+	if expireHours <= 0 {
+		expireHours = 24
+	}
+
 	return &Service{
-		repo: repo,
+		users:          make(map[string]User),
+		jwtSecret:      secret,
+		jwtExpireHours: expireHours,
 	}
 }
 
@@ -24,6 +33,7 @@ func HashPassword(plainPassword string) (string, error) {
 	if plainPassword == "" {
 		return "", errors.New("password is empty")
 	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
@@ -48,9 +58,10 @@ func (s *Service) Register(ctx context.Context, input RegisterRequest) error {
 		return errors.New("email, username or password is empty")
 	}
 
-	// check if user already exists
-	_, err := s.repo.FindByUsername(ctx, input.Username)
-	if err == nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.users[input.Username]; exists {
 		return errors.New("username already exists")
 	}
 
@@ -59,32 +70,39 @@ func (s *Service) Register(ctx context.Context, input RegisterRequest) error {
 		return err
 	}
 
-	u := &user.User{
-		Username:     input.Username,
-		Email:        input.Email,
-		PasswordHash: hash,
+	s.users[input.Username] = User{
 		Name:         input.Name,
 		Surname:      input.Surname,
+		Email:        input.Email,
+		Username:     input.Username,
+		PasswordHash: hash,
 	}
 
-	return s.repo.Create(ctx, u)
+	return nil
 }
 
 // -------------------- LOGIN --------------------
 
-func (s *Service) Login(ctx context.Context, input LoginRequest) (*user.User, error) {
+func (s *Service) Login(ctx context.Context, input LoginRequest) (string, error) {
 	if input.Username == "" || input.Password == "" {
-		return nil, errors.New("username or password is empty")
+		return "", errors.New("username or password is empty")
 	}
 
-	u, err := s.repo.FindByUsername(ctx, input.Username)
+	s.mu.Lock()
+	user, ok := s.users[input.Username]
+	s.mu.Unlock()
+	if !ok {
+		return "", errors.New("invalid credentials")
+	}
+
+	if err := CheckPasswordHash(input.Password, user.PasswordHash); err != nil {
+		return "", errors.New("invalid credentials")
+	}
+
+	token, err := GenerateToken(user.Username, s.jwtExpireHours, s.jwtSecret)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		return "", err
 	}
 
-	if err := CheckPasswordHash(input.Password, u.PasswordHash); err != nil {
-		return nil, errors.New("invalid credentials")
-	}
-
-	return u, nil
+	return token, nil
 }
