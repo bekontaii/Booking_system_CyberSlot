@@ -29,29 +29,27 @@ func New() http.Handler {
 
 	secret, expireHours := resolveJWTConfig()
 	authService := auth.NewService(secret, expireHours)
-	authHandler := auth.NewHandler(authService)
 
-	// Public HTML pages + auth endpoints
+	// Auth API (public): /auth/login and /auth/register
+	authMux := http.NewServeMux()
+	auth.RegisterRoutes(authMux, authService)
+	publicMux.Handle("/auth/", http.StripPrefix("/auth", authMux))
+
+	// Public HTML pages
 	publicMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			renderTemplate(w, templates, "login.html")
-		case http.MethodPost:
-			authHandler.Login(w, r)
-		default:
+		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
 		}
+		renderTemplate(w, templates, "login.html")
 	})
 
 	publicMux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			renderTemplate(w, templates, "register.html")
-		case http.MethodPost:
-			authHandler.Register(w, r)
-		default:
+		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
 		}
+		renderTemplate(w, templates, "register.html")
 	})
 
 	// Protected routes
@@ -89,6 +87,7 @@ func New() http.Handler {
 		_, _ = w.Write([]byte("payment handler not implemented"))
 	})
 
+	// Everything else requires JWT
 	publicMux.Handle("/", middleware.AuthMiddleware(secret)(protectedMux))
 
 	return middleware.Logger(publicMux)
