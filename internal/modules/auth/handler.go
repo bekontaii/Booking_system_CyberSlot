@@ -18,6 +18,7 @@ func NewHandler(service *Service, secret string) *Handler {
 		secret:  secret,
 	}
 }
+
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -62,5 +63,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
+	w.WriteHeader(http.StatusOK) // или StatusCreated
+	json.NewEncoder(w).Encode(map[string]string{
+		"token": tokenString,
+	})
+
 }
