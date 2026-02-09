@@ -1,4 +1,5 @@
 module github.com/bekontaii/Booking_system_CyberSlot
+
 go 1.24.0
 
 toolchain go1.24.2
