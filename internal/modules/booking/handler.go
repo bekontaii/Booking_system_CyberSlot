@@ -57,11 +57,3 @@ func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
 }
-
-var defaultRepository = NewInMemoryRepository()
-var defaultService = NewService(defaultRepository, DefaultExpiration)
-var defaultHandler = NewHandler(defaultService)
-
-func HandleBookings(w http.ResponseWriter, r *http.Request) {
-	defaultHandler.HandleBookings(w, r)
-}

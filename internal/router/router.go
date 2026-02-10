@@ -3,12 +3,12 @@ package router
 import (
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/middleware"
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/auth"
@@ -18,138 +18,108 @@ import (
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 )
 
-func New() http.Handler {
-	templates := template.Must(template.ParseGlob(filepath.Join("web", "templates", "*.html")))
+func New(db *pgxpool.Pool) http.Handler {
+	// ---------- templates ----------
+	templates := template.Must(
+		template.ParseGlob(filepath.Join("web", "templates", "*.html")),
+	)
 
 	publicMux := http.NewServeMux()
 
+	// ---------- static ----------
 	staticDir := http.Dir(filepath.Join("web", "static"))
-	publicMux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(staticDir)))
+	publicMux.Handle(
+		"/static/",
+		http.StripPrefix("/static/", http.FileServer(staticDir)),
+	)
 
+	// ---------- auth ----------
 	secret, expireHours := resolveJWTConfig()
 	authService := auth.NewService(secret, expireHours)
 	authHandler := auth.NewHandler(authService)
 
-	// Public HTML pages (no JWT)
+	// ---------- public pages ----------
 	publicMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		renderTemplate(w, templates, "login.html")
 	})
 
 	publicMux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		renderTemplate(w, templates, "register.html")
 	})
 
 	publicMux.HandleFunc("/clubs", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		renderTemplate(w, templates, "clubs.html")
 	})
 
 	publicMux.HandleFunc("/booking", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		renderTemplate(w, templates, "booking.html")
 	})
 
 	publicMux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = fmt.Fprint(w, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Logout</title></head><body><script>
-fetch('/api/logout', {method:'POST', headers:{'Authorization':'Bearer ' + (localStorage.getItem('jwt_token') || '')}})
-  .finally(function(){ localStorage.removeItem('jwt_token'); window.location = '/login'; });
-</script></body></html>`)
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<script>
+fetch('/api/logout',{method:'POST',headers:{'Authorization':'Bearer '+localStorage.getItem('jwt_token')}})
+.finally(()=>{localStorage.removeItem('jwt_token');location='/login';});
+</script>`)
 	})
 
-	// Public auth API (no JWT): /auth/login, /auth/register
-	publicAuthMux := http.NewServeMux()
-	auth.RegisterRoutes(publicAuthMux, authService)
-	publicMux.Handle("/auth/", http.StripPrefix("/auth", publicAuthMux))
+	// ---------- public auth api ----------
+	authMux := http.NewServeMux()
+	auth.RegisterRoutes(authMux, authService)
+	publicMux.Handle("/auth/", http.StripPrefix("/auth", authMux))
 
-	// Protected routes (JWT required)
-	protectedMux := http.NewServeMux()
-
-	// API routes under /api/*
+	// ---------- protected api ----------
 	apiMux := http.NewServeMux()
 
-	// Logout API (protected)
+	// logout
 	apiMux.HandleFunc("/logout", authHandler.Logout)
 
-	// User module
-	user.RegisterRoutes(apiMux)
+	// ---------- USER (Postgres) ----------
+	user.RegisterRoutes(apiMux, db)
 
-	// Club and PC modules (use sub-muxes to avoid /clubs/ route conflicts)
+	// ---------- BOOKING (Postgres) ----------
+	bookingRepo := booking.NewPostgresRepository(db)
+	bookingService := booking.NewService(bookingRepo, booking.DefaultExpiration)
+	bookingHandler := booking.NewHandler(bookingService)
+
+	apiMux.HandleFunc("/bookings", bookingHandler.HandleBookings)
+
+	// ---------- CLUB / PC ----------
 	clubMux := http.NewServeMux()
 	club.RegisterRoutes(clubMux)
 
 	pcMux := http.NewServeMux()
 	pc.RegisterRoutes(pcMux)
 
-	apiMux.Handle("/clubs", clubMux)
-	apiMux.Handle("/clubs/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/pcs") || strings.HasSuffix(r.URL.Path, "/pcs/") {
-			pcMux.ServeHTTP(w, r)
-			return
-		}
-		clubMux.ServeHTTP(w, r)
-	}))
-
-	apiMux.Handle("/pcs", pcMux)
+	apiMux.Handle("/clubs/", clubMux)
 	apiMux.Handle("/pcs/", pcMux)
 
-	// Booking module
-	apiMux.HandleFunc("/bookings", booking.HandleBookings)
-
-	// Payment module (stub handler until implemented)
-	apiMux.HandleFunc("/payment", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotImplemented)
-		_, _ = w.Write([]byte("payment handler not implemented"))
-	})
-
-	protectedMux.Handle("/api/", http.StripPrefix("/api", apiMux))
-
-	publicMux.Handle("/", middleware.AuthMiddleware(secret)(protectedMux))
+	// ---------- middleware ----------
+	protected := middleware.AuthMiddleware(secret)(apiMux)
+	publicMux.Handle("/api/", http.StripPrefix("/api", protected))
 
 	return middleware.Logger(publicMux)
 }
 
-func renderTemplate(w http.ResponseWriter, templates *template.Template, name string) {
+/* ---------------- helpers ---------------- */
+
+func renderTemplate(w http.ResponseWriter, t *template.Template, name string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := templates.ExecuteTemplate(w, name, nil); err != nil {
-		http.Error(w, "template rendering error", http.StatusInternalServerError)
-	}
+	_ = t.ExecuteTemplate(w, name, nil)
 }
 
 func resolveJWTConfig() (string, int) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		log.Println("JWT_SECRET not set; using development default")
 		secret = "dev-secret"
 	}
 
-	expireHours := 24
-	if value := strings.TrimSpace(os.Getenv("JWT_EXPIRE_HOURS")); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed <= 0 {
-			log.Println("JWT_EXPIRE_HOURS invalid; using default 24h")
-		} else {
-			expireHours = parsed
+	expire := 24
+	if v := os.Getenv("JWT_EXPIRE_HOURS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			expire = n
 		}
 	}
 
-	return secret, expireHours
+	return secret, expire
 }
