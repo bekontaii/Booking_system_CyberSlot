@@ -9,6 +9,14 @@ type CreateBookingRequest struct {
 	EndTime   time.Time `json:"end_time"`
 }
 
+type UpdateBookingRequest struct {
+	PCID      *int       `json:"pc_id"`
+	UserID    *int       `json:"user_id"`
+	StartTime *time.Time `json:"start_time"`
+	EndTime   *time.Time `json:"end_time"`
+	Status    *string    `json:"status"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }

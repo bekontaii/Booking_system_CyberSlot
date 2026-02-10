@@ -9,6 +9,8 @@ type Repository interface {
 	Create(booking Booking) (Booking, error)
 	GetAll() []Booking
 	UpdateStatus(id int, status string) error
+	Update(booking Booking) error
+	Delete(id int) error
 }
 
 type InMemoryRepository struct {
@@ -52,6 +54,34 @@ func (r *InMemoryRepository) UpdateStatus(id int, status string) error {
 	for i, booking := range r.bookings {
 		if booking.ID == id {
 			r.bookings[i].Status = status
+			return nil
+		}
+	}
+
+	return errors.New("booking not found")
+}
+
+func (r *InMemoryRepository) Update(booking Booking) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i := range r.bookings {
+		if r.bookings[i].ID == booking.ID {
+			r.bookings[i] = booking
+			return nil
+		}
+	}
+
+	return errors.New("booking not found")
+}
+
+func (r *InMemoryRepository) Delete(id int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i, booking := range r.bookings {
+		if booking.ID == id {
+			r.bookings = append(r.bookings[:i], r.bookings[i+1:]...)
 			return nil
 		}
 	}
