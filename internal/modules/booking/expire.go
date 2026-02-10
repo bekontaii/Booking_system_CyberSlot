@@ -4,7 +4,6 @@ import "time"
 
 const DefaultExpiration = 30 * time.Second
 
-// Auto-expire pending bookings after the configured duration.
 func (s *Service) startAutoExpire(bookingID int) {
 	expireAfter := s.expireAfter
 	if expireAfter <= 0 {

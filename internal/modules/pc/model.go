@@ -1,6 +1,5 @@
 package pc
 
-// Status values for PC lifecycle.
 const (
 	StatusActive      = "ACTIVE"
 	StatusBroken      = "BROKEN"
