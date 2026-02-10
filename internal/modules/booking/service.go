@@ -34,7 +34,6 @@ func (s *Service) CreateBooking(request CreateBookingRequest) (Booking, error) {
 	}
 
 	booking := Booking{
-		ID:        nextID(existing),
 		PCID:      request.PCID,
 		UserID:    request.UserID,
 		StartTime: request.StartTime,
@@ -42,12 +41,13 @@ func (s *Service) CreateBooking(request CreateBookingRequest) (Booking, error) {
 		Status:    StatusPending,
 	}
 
-	if err := s.repo.Create(booking); err != nil {
+	created, err := s.repo.Create(booking)
+	if err != nil {
 		return Booking{}, err
 	}
 
-	s.startAutoExpire(booking.ID)
-	return booking, nil
+	s.startAutoExpire(created.ID)
+	return created, nil
 }
 
 func (s *Service) GetAllBookings() []Booking {
@@ -60,17 +60,6 @@ func validateTimeRange(start, end time.Time) error {
 	}
 
 	return nil
-}
-
-func nextID(bookings []Booking) int {
-	maxID := 0
-	for _, booking := range bookings {
-		if booking.ID > maxID {
-			maxID = booking.ID
-		}
-	}
-
-	return maxID + 1
 }
 
 func (s *Service) getByID(id int) (Booking, bool) {

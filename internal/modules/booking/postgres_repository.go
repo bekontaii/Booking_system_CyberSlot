@@ -15,16 +15,17 @@ func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-func (r *PostgresRepository) Create(booking Booking) error {
+func (r *PostgresRepository) Create(booking Booking) (Booking, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	query := `
 		INSERT INTO public.bookings (user_id, pc_id, start_time, end_time, status)
 		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
 	`
 
-	_, err := r.db.Exec(
+	err := r.db.QueryRow(
 		ctx,
 		query,
 		booking.UserID,
@@ -32,9 +33,9 @@ func (r *PostgresRepository) Create(booking Booking) error {
 		booking.StartTime,
 		booking.EndTime,
 		booking.Status,
-	)
+	).Scan(&booking.ID)
 
-	return err
+	return booking, err
 }
 
 func (r *PostgresRepository) GetAll() []Booking {

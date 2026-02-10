@@ -97,6 +97,33 @@ func (r *PostgresRepository) GetByID(id int) (User, error) {
 	return u, nil
 }
 
+func (r *PostgresRepository) GetByUsername(username string) (User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var u User
+	query := `
+		SELECT id, name, surname, email, username, password_hash, created_at
+		FROM public.users
+		WHERE username = $1
+	`
+
+	err := r.db.QueryRow(ctx, query, username).Scan(
+		&u.ID,
+		&u.Name,
+		&u.Surname,
+		&u.Email,
+		&u.Username,
+		&u.PasswordHash,
+		&u.CreatedAt,
+	)
+	if err != nil {
+		return User{}, ErrUserNotFound
+	}
+
+	return u, nil
+}
+
 func (r *PostgresRepository) Update(id int, user User) (User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
