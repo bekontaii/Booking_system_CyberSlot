@@ -2,7 +2,6 @@ package pc
 
 import "net/http"
 
-// RegisterRoutes wires PC handlers to the provided router.
 func RegisterRoutes(mux *http.ServeMux) {
 	repo := NewInMemoryRepository()
 	service := NewService(repo)

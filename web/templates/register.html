@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Register</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="/static/js/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="site-title">PC Booking System</div>
+      <nav class="site-nav">
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+        <a href="/clubs">Clubs</a>
+        <a href="/booking">Booking</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>Register</h1>
+
+    <form id="register-form" class="form">
+      <label>
+        Name
+        <input type="text" name="name" required />
+      </label>
+      <label>
+        Surname
+        <input type="text" name="surname" required />
+      </label>
+      <label>
+        Email
+        <input type="email" name="email" required />
+      </label>
+      <label>
+        Username
+        <input type="text" name="username" required />
+      </label>
+      <label>
+        Password
+        <input type="password" name="password" required />
+      </label>
+      <button type="submit">Register</button>
+    </form>
+
+    <div id="register-message" class="message"></div>
+  </main>
+</body>
+</html>

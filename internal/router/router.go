@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -17,25 +18,19 @@ import (
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 )
 
-// New builds the application router with public and protected routes.
 func New() http.Handler {
 	templates := template.Must(template.ParseGlob(filepath.Join("web", "templates", "*.html")))
 
 	publicMux := http.NewServeMux()
 
-	// Static assets
 	staticDir := http.Dir(filepath.Join("web", "static"))
 	publicMux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(staticDir)))
 
 	secret, expireHours := resolveJWTConfig()
 	authService := auth.NewService(secret, expireHours)
+	authHandler := auth.NewHandler(authService)
 
-	// Auth API (public): /auth/login and /auth/register
-	authMux := http.NewServeMux()
-	auth.RegisterRoutes(authMux, authService)
-	publicMux.Handle("/auth/", http.StripPrefix("/auth", authMux))
-
-	// Public HTML pages
+	// Public HTML pages (no JWT)
 	publicMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -52,11 +47,50 @@ func New() http.Handler {
 		renderTemplate(w, templates, "register.html")
 	})
 
-	// Protected routes
+	publicMux.HandleFunc("/clubs", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		renderTemplate(w, templates, "clubs.html")
+	})
+
+	publicMux.HandleFunc("/booking", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		renderTemplate(w, templates, "booking.html")
+	})
+
+	publicMux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprint(w, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Logout</title></head><body><script>
+fetch('/api/logout', {method:'POST', headers:{'Authorization':'Bearer ' + (localStorage.getItem('jwt_token') || '')}})
+  .finally(function(){ localStorage.removeItem('jwt_token'); window.location = '/login'; });
+</script></body></html>`)
+	})
+
+	// Public auth API (no JWT): /auth/login, /auth/register
+	publicAuthMux := http.NewServeMux()
+	auth.RegisterRoutes(publicAuthMux, authService)
+	publicMux.Handle("/auth/", http.StripPrefix("/auth", publicAuthMux))
+
+	// Protected routes (JWT required)
 	protectedMux := http.NewServeMux()
 
+	// API routes under /api/*
+	apiMux := http.NewServeMux()
+
+	// Logout API (protected)
+	apiMux.HandleFunc("/logout", authHandler.Logout)
+
 	// User module
-	user.RegisterRoutes(protectedMux)
+	user.RegisterRoutes(apiMux)
 
 	// Club and PC modules (use sub-muxes to avoid /clubs/ route conflicts)
 	clubMux := http.NewServeMux()
@@ -65,9 +99,8 @@ func New() http.Handler {
 	pcMux := http.NewServeMux()
 	pc.RegisterRoutes(pcMux)
 
-	protectedMux.Handle("/clubs", clubMux)
-	protectedMux.Handle("/clubs/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Delegate /clubs/{id}/pcs to the PC module; others go to the club module.
+	apiMux.Handle("/clubs", clubMux)
+	apiMux.Handle("/clubs/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/pcs") || strings.HasSuffix(r.URL.Path, "/pcs/") {
 			pcMux.ServeHTTP(w, r)
 			return
@@ -75,19 +108,20 @@ func New() http.Handler {
 		clubMux.ServeHTTP(w, r)
 	}))
 
-	protectedMux.Handle("/pcs", pcMux)
-	protectedMux.Handle("/pcs/", pcMux)
+	apiMux.Handle("/pcs", pcMux)
+	apiMux.Handle("/pcs/", pcMux)
 
 	// Booking module
-	protectedMux.HandleFunc("/bookings", booking.HandleBookings)
+	apiMux.HandleFunc("/bookings", booking.HandleBookings)
 
 	// Payment module (stub handler until implemented)
-	protectedMux.HandleFunc("/payment", func(w http.ResponseWriter, r *http.Request) {
+	apiMux.HandleFunc("/payment", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotImplemented)
 		_, _ = w.Write([]byte("payment handler not implemented"))
 	})
 
-	// Everything else requires JWT
+	protectedMux.Handle("/api/", http.StripPrefix("/api", apiMux))
+
 	publicMux.Handle("/", middleware.AuthMiddleware(secret)(protectedMux))
 
 	return middleware.Logger(publicMux)

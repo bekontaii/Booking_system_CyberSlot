@@ -7,7 +7,6 @@ import (
 
 var ErrPCNotFound = errors.New("pc not found")
 
-// Repository defines storage operations for PCs.
 type Repository interface {
 	Create(pc PC) (PC, error)
 	GetAll() ([]PC, error)
@@ -17,7 +16,6 @@ type Repository interface {
 	Delete(id int) error
 }
 
-// InMemoryRepository stores PCs in memory with thread safety.
 type InMemoryRepository struct {
 	mu     sync.Mutex
 	items  map[int]PC
