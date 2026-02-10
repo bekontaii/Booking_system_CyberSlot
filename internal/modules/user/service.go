@@ -10,7 +10,6 @@ var (
 	ErrInvalidUserRole  = errors.New("invalid user role")
 )
 
-// Service contains business logic for users.
 type Service struct {
 	repo Repository
 }

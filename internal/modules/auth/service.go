@@ -27,8 +27,6 @@ func NewService(secret string, expireHours int) *Service {
 	}
 }
 
-// -------------------- PASSWORD --------------------
-
 func HashPassword(plainPassword string) (string, error) {
 	if plainPassword == "" {
 		return "", errors.New("password is empty")
@@ -50,8 +48,6 @@ func CheckPasswordHash(plainPassword string, hashedPassword string) error {
 	}
 	return nil
 }
-
-// -------------------- REGISTER --------------------
 
 func (s *Service) Register(ctx context.Context, input RegisterRequest) error {
 	if input.Email == "" || input.Password == "" || input.Username == "" {
@@ -80,8 +76,6 @@ func (s *Service) Register(ctx context.Context, input RegisterRequest) error {
 
 	return nil
 }
-
-// -------------------- LOGIN --------------------
 
 func (s *Service) Login(ctx context.Context, input LoginRequest) (string, error) {
 	if input.Username == "" || input.Password == "" {
