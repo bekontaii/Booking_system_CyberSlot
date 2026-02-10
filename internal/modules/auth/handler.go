@@ -55,6 +55,16 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, TokenResponse{Token: token})
 }
 
+// Logout is a public endpoint. Clients should discard their token on logout.
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, MessageResponse{Message: "logged out"})
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }

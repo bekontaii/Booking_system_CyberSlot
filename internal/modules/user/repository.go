@@ -7,7 +7,6 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 
-// Repository defines storage operations for users.
 type Repository interface {
 	Create(user User) (User, error)
 	GetAll() ([]User, error)
@@ -16,7 +15,6 @@ type Repository interface {
 	Delete(id int) error
 }
 
-// InMemoryRepository stores users in memory with thread safety.
 type InMemoryRepository struct {
 	mu     sync.Mutex
 	items  map[int]User

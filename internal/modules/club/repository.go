@@ -7,7 +7,6 @@ import (
 
 var ErrClubNotFound = errors.New("club not found")
 
-// Repository defines storage operations for clubs.
 type Repository interface {
 	Create(club Club) (Club, error)
 	GetAll() ([]Club, error)
@@ -16,7 +15,6 @@ type Repository interface {
 	Delete(id int) error
 }
 
-// InMemoryRepository stores clubs in memory with thread safety.
 type InMemoryRepository struct {
 	mu     sync.Mutex
 	items  map[int]Club

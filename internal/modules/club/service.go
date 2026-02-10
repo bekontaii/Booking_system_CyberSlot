@@ -4,7 +4,6 @@ import "errors"
 
 var ErrInvalidClubInput = errors.New("invalid club input")
 
-// Service contains business logic for clubs.
 type Service struct {
 	repo Repository
 }

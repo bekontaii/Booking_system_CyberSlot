@@ -4,7 +4,6 @@ import "errors"
 
 var ErrInvalidPCInput = errors.New("invalid pc input")
 
-// Service contains business logic for PCs.
 type Service struct {
 	repo Repository
 }
