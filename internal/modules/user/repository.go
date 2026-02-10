@@ -11,6 +11,7 @@ type Repository interface {
 	Create(user User) (User, error)
 	GetAll() ([]User, error)
 	GetByID(id int) (User, error)
+	GetByUsername(username string) (User, error)
 	Update(id int, user User) (User, error)
 	Delete(id int) error
 }
@@ -60,6 +61,19 @@ func (r *InMemoryRepository) GetByID(id int) (User, error) {
 	}
 
 	return user, nil
+}
+
+func (r *InMemoryRepository) GetByUsername(username string) (User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, user := range r.items {
+		if user.Username == username {
+			return user, nil
+		}
+	}
+
+	return User{}, ErrUserNotFound
 }
 
 func (r *InMemoryRepository) Update(id int, user User) (User, error) {

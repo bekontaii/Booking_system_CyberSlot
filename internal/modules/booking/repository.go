@@ -6,7 +6,7 @@ import (
 )
 
 type Repository interface {
-	Create(booking Booking) error
+	Create(booking Booking) (Booking, error)
 	GetAll() []Booking
 	UpdateStatus(id int, status string) error
 }
@@ -20,18 +20,20 @@ func NewInMemoryRepository() *InMemoryRepository {
 	return &InMemoryRepository{bookings: make([]Booking, 0)}
 }
 
-func (r *InMemoryRepository) Create(booking Booking) error {
+func (r *InMemoryRepository) Create(booking Booking) (Booking, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	maxID := 0
 	for _, existing := range r.bookings {
-		if existing.ID == booking.ID {
-			return errors.New("booking id already exists")
+		if existing.ID > maxID {
+			maxID = existing.ID
 		}
 	}
+	booking.ID = maxID + 1
 
 	r.bookings = append(r.bookings, booking)
-	return nil
+	return booking, nil
 }
 
 func (r *InMemoryRepository) GetAll() []Booking {

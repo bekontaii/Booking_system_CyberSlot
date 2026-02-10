@@ -21,7 +21,6 @@ func main() {
 	addr := resolveAddr()
 	ensureJWTSecret()
 
-	// 🔹 БД живёт всё время работы приложения
 	var db *pgxpool.Pool
 
 	if shouldInitDB() {

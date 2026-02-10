@@ -35,7 +35,8 @@ func New(db *pgxpool.Pool) http.Handler {
 
 	// ---------- auth ----------
 	secret, expireHours := resolveJWTConfig()
-	authService := auth.NewService(secret, expireHours)
+	authRepo := user.NewPostgresRepository(db)
+	authService := auth.NewService(authRepo, secret, expireHours)
 	authHandler := auth.NewHandler(authService)
 
 	// ---------- public pages ----------

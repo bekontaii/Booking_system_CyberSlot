@@ -16,12 +16,6 @@ func NewPostgres() (*pgxpool.Pool, error) {
 	password := os.Getenv("DB_PASSWORD")
 	dbname := os.Getenv("DB_NAME")
 	sslmode := os.Getenv("DB_SSLMODE")
-	fmt.Println("====== DB CONNECTION ======")
-	fmt.Println("DB_HOST:", os.Getenv("DB_HOST"))
-	fmt.Println("DB_PORT:", os.Getenv("DB_PORT"))
-	fmt.Println("DB_NAME:", os.Getenv("DB_NAME"))
-	fmt.Println("DB_USER:", os.Getenv("DB_USER"))
-	fmt.Println("===========================")
 
 	dsn := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=%s",

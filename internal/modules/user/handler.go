@@ -18,7 +18,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) HandleUsers(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		h.createUser(w, r)
+		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "use /auth/register to create users"})
 	case http.MethodGet:
 		h.listUsers(w, r)
 	default:

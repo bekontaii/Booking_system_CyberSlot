@@ -3,25 +3,25 @@ package auth
 import (
 	"context"
 	"errors"
-	"sync"
+	"time"
 
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
-	mu             sync.Mutex
-	users          map[string]User
+	repo           user.Repository
 	jwtSecret      string
 	jwtExpireHours int
 }
 
-func NewService(secret string, expireHours int) *Service {
+func NewService(repo user.Repository, secret string, expireHours int) *Service {
 	if expireHours <= 0 {
 		expireHours = 24
 	}
 
 	return &Service{
-		users:          make(map[string]User),
+		repo:           repo,
 		jwtSecret:      secret,
 		jwtExpireHours: expireHours,
 	}
@@ -53,11 +53,11 @@ func (s *Service) Register(ctx context.Context, input RegisterRequest) error {
 	if input.Email == "" || input.Password == "" || input.Username == "" {
 		return errors.New("email, username or password is empty")
 	}
+	if input.Name == "" || input.Surname == "" {
+		return errors.New("name or surname is empty")
+	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.users[input.Username]; exists {
+	if _, err := s.repo.GetByUsername(input.Username); err == nil {
 		return errors.New("username already exists")
 	}
 
@@ -66,12 +66,17 @@ func (s *Service) Register(ctx context.Context, input RegisterRequest) error {
 		return err
 	}
 
-	s.users[input.Username] = User{
+	_, err = s.repo.Create(user.User{
 		Name:         input.Name,
 		Surname:      input.Surname,
 		Email:        input.Email,
 		Username:     input.Username,
+		Role:         user.RoleUser,
 		PasswordHash: hash,
+		CreatedAt:    time.Now().UTC(),
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -82,18 +87,16 @@ func (s *Service) Login(ctx context.Context, input LoginRequest) (string, error)
 		return "", errors.New("username or password is empty")
 	}
 
-	s.mu.Lock()
-	user, ok := s.users[input.Username]
-	s.mu.Unlock()
-	if !ok {
+	u, err := s.repo.GetByUsername(input.Username)
+	if err != nil {
 		return "", errors.New("invalid credentials")
 	}
 
-	if err := CheckPasswordHash(input.Password, user.PasswordHash); err != nil {
+	if err := CheckPasswordHash(input.Password, u.PasswordHash); err != nil {
 		return "", errors.New("invalid credentials")
 	}
 
-	token, err := GenerateToken(user.Username, s.jwtExpireHours, s.jwtSecret)
+	token, err := GenerateToken(u.Username, s.jwtExpireHours, s.jwtSecret)
 	if err != nil {
 		return "", err
 	}
