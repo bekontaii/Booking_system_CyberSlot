@@ -12,4 +12,5 @@ func RegisterRoutes(mux *http.ServeMux, db *pgxpool.Pool) {
 
 	mux.HandleFunc("/users", handler.HandleUsers)
 	mux.HandleFunc("/users/", handler.HandleUserByID)
+	mux.HandleFunc("/profile", handler.HandleProfile)
 }

@@ -19,27 +19,23 @@ import (
 )
 
 func New(db *pgxpool.Pool) http.Handler {
-	// ---------- templates ----------
 	templates := template.Must(
 		template.ParseGlob(filepath.Join("web", "templates", "*.html")),
 	)
 
 	publicMux := http.NewServeMux()
 
-	// ---------- static ----------
 	staticDir := http.Dir(filepath.Join("web", "static"))
 	publicMux.Handle(
 		"/static/",
 		http.StripPrefix("/static/", http.FileServer(staticDir)),
 	)
 
-	// ---------- auth ----------
 	secret, expireHours := resolveJWTConfig()
 	authRepo := user.NewPostgresRepository(db)
 	authService := auth.NewService(authRepo, secret, expireHours)
 	authHandler := auth.NewHandler(authService)
 
-	// ---------- public pages ----------
 	publicMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		renderTemplate(w, templates, "login.html")
 	})
@@ -64,28 +60,25 @@ fetch('/api/logout',{method:'POST',headers:{'Authorization':'Bearer '+localStora
 </script>`)
 	})
 
-	// ---------- public auth api ----------
 	authMux := http.NewServeMux()
 	auth.RegisterRoutes(authMux, authService)
 	publicMux.Handle("/auth/", http.StripPrefix("/auth", authMux))
+	publicMux.HandleFunc("/api/logout", authHandler.Logout)
 
-	// ---------- protected api ----------
 	apiMux := http.NewServeMux()
 
 	// logout
 	apiMux.HandleFunc("/logout", authHandler.Logout)
 
-	// ---------- USER (Postgres) ----------
 	user.RegisterRoutes(apiMux, db)
 
-	// ---------- BOOKING (Postgres) ----------
 	bookingRepo := booking.NewPostgresRepository(db)
 	bookingService := booking.NewService(bookingRepo, booking.DefaultExpiration)
 	bookingHandler := booking.NewHandler(bookingService)
 
 	apiMux.HandleFunc("/bookings", bookingHandler.HandleBookings)
+	apiMux.HandleFunc("/bookings/", bookingHandler.HandleBookingByID)
 
-	// ---------- CLUB / PC ----------
 	clubMux := http.NewServeMux()
 	club.RegisterRoutes(clubMux)
 
@@ -95,14 +88,11 @@ fetch('/api/logout',{method:'POST',headers:{'Authorization':'Bearer '+localStora
 	apiMux.Handle("/clubs/", clubMux)
 	apiMux.Handle("/pcs/", pcMux)
 
-	// ---------- middleware ----------
 	protected := middleware.AuthMiddleware(secret)(apiMux)
 	publicMux.Handle("/api/", http.StripPrefix("/api", protected))
 
 	return middleware.Logger(publicMux)
 }
-
-/* ---------------- helpers ---------------- */
 
 func renderTemplate(w http.ResponseWriter, t *template.Template, name string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

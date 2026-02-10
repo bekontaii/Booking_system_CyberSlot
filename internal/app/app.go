@@ -9,9 +9,12 @@ import (
 
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/router"
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/storage"
+	"github.com/joho/godotenv"
 )
 
+// RunServer starts the HTTP server.
 func RunServer() error {
+	_ = godotenv.Load()
 	addr := resolveAddr()
 
 	db, err := storage.NewPostgres()

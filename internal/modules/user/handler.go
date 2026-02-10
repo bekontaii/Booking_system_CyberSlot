@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/middleware"
 )
 
 type Handler struct {
@@ -38,11 +40,35 @@ func (h *Handler) HandleUserByID(w http.ResponseWriter, r *http.Request) {
 		h.getUser(w, r, id)
 	case http.MethodPut:
 		h.updateUser(w, r, id)
+	case http.MethodPatch:
+		h.updateUserPartial(w, r, id)
 	case http.MethodDelete:
 		h.deleteUser(w, r, id)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+func (h *Handler) HandleProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	username, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || username == "" {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
+		return
+	}
+
+	user, err := h.service.GetUserByUsername(username)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	user.PasswordHash = ""
+
+	writeJSON(w, http.StatusOK, user)
 }
 
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +115,22 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request, id int) {
 	}
 
 	user, err := h.service.UpdateUser(id, input)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, user)
+}
+
+func (h *Handler) updateUserPartial(w http.ResponseWriter, r *http.Request, id int) {
+	var input UpdateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON body"})
+		return
+	}
+
+	user, err := h.service.UpdateUserPartial(id, input)
 	if err != nil {
 		writeServiceError(w, err)
 		return
