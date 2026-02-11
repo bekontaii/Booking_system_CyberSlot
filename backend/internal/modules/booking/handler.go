@@ -3,6 +3,8 @@ package booking
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 type Handler struct {
@@ -19,6 +21,23 @@ func (h *Handler) HandleBookings(w http.ResponseWriter, r *http.Request) {
 		h.handleCreate(w, r)
 	case http.MethodGet:
 		h.handleList(w, r)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) HandleBookingByID(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(r.URL.Path)
+	if !ok {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "booking not found"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPut, http.MethodPatch:
+		h.handleUpdate(w, r, id)
+	case http.MethodDelete:
+		h.handleDelete(w, r, id)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -47,6 +66,45 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, booking)
 }
 
+func (h *Handler) handleUpdate(w http.ResponseWriter, r *http.Request, id int) {
+	var req UpdateBookingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON body"})
+		return
+	}
+
+	booking, err := h.service.UpdateBooking(id, req)
+	if err != nil {
+		switch err {
+		case ErrInvalidTimeRange, ErrInvalidStatus:
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		case ErrBookingConflict:
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: err.Error()})
+		case ErrBookingNotFound:
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "unable to update booking"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, booking)
+}
+
+func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request, id int) {
+	if err := h.service.DeleteBooking(id); err != nil {
+		switch err {
+		case ErrBookingNotFound:
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "unable to delete booking"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
+}
+
 func (h *Handler) handleList(w http.ResponseWriter, r *http.Request) {
 	bookings := h.service.GetAllBookings()
 	writeJSON(w, http.StatusOK, bookings)
@@ -58,10 +116,17 @@ func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-var defaultRepository = NewInMemoryRepository()
-var defaultService = NewService(defaultRepository, DefaultExpiration)
-var defaultHandler = NewHandler(defaultService)
+func parseID(path string) (int, bool) {
+	trimmed := strings.TrimPrefix(path, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) < 2 {
+		return 0, false
+	}
 
-func HandleBookings(w http.ResponseWriter, r *http.Request) {
-	defaultHandler.HandleBookings(w, r)
+	id, err := strconv.Atoi(parts[1])
+	if err != nil || id <= 0 {
+		return 0, false
+	}
+
+	return id, true
 }

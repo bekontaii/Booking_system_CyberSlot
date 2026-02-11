@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -10,7 +11,6 @@ var (
 	ErrInvalidUserRole  = errors.New("invalid user role")
 )
 
-// Service contains business logic for users.
 type Service struct {
 	repo Repository
 }
@@ -46,12 +46,23 @@ func (s *Service) GetUserByID(id int) (User, error) {
 	return s.repo.GetByID(id)
 }
 
+func (s *Service) GetUserByUsername(username string) (User, error) {
+	if username == "" {
+		return User{}, ErrInvalidUserInput
+	}
+
+	return s.repo.GetByUsername(username)
+}
+
 func (s *Service) UpdateUser(id int, input User) (User, error) {
 	if id <= 0 {
 		return User{}, ErrInvalidUserInput
 	}
 	if err := validateUser(input); err != nil {
 		return User{}, err
+	}
+	if input.Role != "" {
+		input.Role = strings.ToUpper(input.Role)
 	}
 	if input.Role == "" {
 		input.Role = RoleUser
@@ -66,6 +77,40 @@ func (s *Service) UpdateUser(id int, input User) (User, error) {
 	}
 
 	return s.repo.Update(id, input)
+}
+
+func (s *Service) UpdateUserPartial(id int, input UpdateUserRequest) (User, error) {
+	if id <= 0 {
+		return User{}, ErrInvalidUserInput
+	}
+
+	existing, err := s.repo.GetByID(id)
+	if err != nil {
+		return User{}, err
+	}
+
+	updated := existing
+	if input.Name != nil {
+		updated.Name = *input.Name
+	}
+	if input.Surname != nil {
+		updated.Surname = *input.Surname
+	}
+	if input.Username != nil {
+		updated.Username = *input.Username
+	}
+	if input.Email != nil {
+		updated.Email = *input.Email
+	}
+	if input.Role != nil {
+		updated.Role = strings.ToUpper(*input.Role)
+	}
+
+	if err := validateUserPartial(updated, input); err != nil {
+		return User{}, err
+	}
+
+	return s.repo.Update(id, updated)
 }
 
 func (s *Service) DeleteUser(id int) error {
@@ -85,6 +130,19 @@ func validateUser(user User) error {
 		return ErrInvalidUserRole
 	}
 
+	return nil
+}
+
+func validateUserPartial(user User, input UpdateUserRequest) error {
+	if input.Name != nil && user.Name == "" {
+		return ErrInvalidUserInput
+	}
+	if input.Email != nil && user.Email == "" {
+		return ErrInvalidUserInput
+	}
+	if user.Role != "" && !isValidRole(user.Role) {
+		return ErrInvalidUserRole
+	}
 	return nil
 }
 

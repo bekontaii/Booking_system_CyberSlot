@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/router"
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/storage"
 	"log"
 	"net/http"
 	"os"
@@ -9,8 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/router"
-	storage "github.com/bekontaii/Booking_system_CyberSlot/internal/storage"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -19,16 +20,18 @@ func main() {
 	addr := resolveAddr()
 	ensureJWTSecret()
 
+	var db *pgxpool.Pool
+
 	if shouldInitDB() {
-		db, err := storage.NewPostgres()
+		var err error
+		db, err = storage.NewPostgres()
 		if err != nil {
-			log.Printf("database connection failed: %v (running without DB)", err)
-		} else {
-			defer db.Close()
+			log.Fatalf("database connection failed: %v", err)
 		}
+		defer db.Close()
 	}
 
-	handler := router.New()
+	handler := router.New(db)
 
 	srv := &http.Server{
 		Addr:         addr,
@@ -66,6 +69,7 @@ func loadEnvFile(path string) {
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
 		value = strings.Trim(value, "\"'")
+
 		if key == "" {
 			continue
 		}
@@ -88,7 +92,7 @@ func resolveAddr() string {
 }
 
 func ensureJWTSecret() {
-	if secret := strings.TrimSpace(os.Getenv("JWT_SECRET")); secret != "" {
+	if strings.TrimSpace(os.Getenv("JWT_SECRET")) != "" {
 		return
 	}
 

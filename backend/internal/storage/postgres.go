@@ -40,4 +40,5 @@ func NewPostgres() (*pgxpool.Pool, error) {
 	}
 
 	return pool, nil
+
 }

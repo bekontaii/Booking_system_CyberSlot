@@ -8,6 +8,8 @@ import (
 var (
 	ErrInvalidTimeRange = errors.New("invalid time range")
 	ErrBookingConflict  = errors.New("booking conflict")
+	ErrBookingNotFound  = errors.New("booking not found")
+	ErrInvalidStatus    = errors.New("invalid booking status")
 )
 
 type Service struct {
@@ -34,7 +36,6 @@ func (s *Service) CreateBooking(request CreateBookingRequest) (Booking, error) {
 	}
 
 	booking := Booking{
-		ID:        nextID(existing),
 		PCID:      request.PCID,
 		UserID:    request.UserID,
 		StartTime: request.StartTime,
@@ -42,16 +43,69 @@ func (s *Service) CreateBooking(request CreateBookingRequest) (Booking, error) {
 		Status:    StatusPending,
 	}
 
-	if err := s.repo.Create(booking); err != nil {
+	created, err := s.repo.Create(booking)
+	if err != nil {
 		return Booking{}, err
 	}
 
-	s.startAutoExpire(booking.ID)
-	return booking, nil
+	s.startAutoExpire(created.ID)
+	return created, nil
 }
 
 func (s *Service) GetAllBookings() []Booking {
 	return s.repo.GetAll()
+}
+
+func (s *Service) UpdateBooking(id int, request UpdateBookingRequest) (Booking, error) {
+	current, ok := s.getByID(id)
+	if !ok {
+		return Booking{}, ErrBookingNotFound
+	}
+
+	updated := current
+	if request.PCID != nil {
+		updated.PCID = *request.PCID
+	}
+	if request.UserID != nil {
+		updated.UserID = *request.UserID
+	}
+	if request.StartTime != nil {
+		updated.StartTime = *request.StartTime
+	}
+	if request.EndTime != nil {
+		updated.EndTime = *request.EndTime
+	}
+	if request.Status != nil {
+		if !isValidStatus(*request.Status) {
+			return Booking{}, ErrInvalidStatus
+		}
+		updated.Status = *request.Status
+	}
+
+	if err := validateTimeRange(updated.StartTime, updated.EndTime); err != nil {
+		return Booking{}, err
+	}
+
+	if updated.Status == StatusPending || updated.Status == StatusConfirmed {
+		existing := s.repo.GetAll()
+		if !IsAvailableExcept(existing, updated.ID, updated.PCID, updated.StartTime, updated.EndTime) {
+			return Booking{}, ErrBookingConflict
+		}
+	}
+
+	if err := s.repo.Update(updated); err != nil {
+		return Booking{}, err
+	}
+
+	return updated, nil
+}
+
+func (s *Service) DeleteBooking(id int) error {
+	if _, ok := s.getByID(id); !ok {
+		return ErrBookingNotFound
+	}
+
+	return s.repo.Delete(id)
 }
 
 func validateTimeRange(start, end time.Time) error {
@@ -60,17 +114,6 @@ func validateTimeRange(start, end time.Time) error {
 	}
 
 	return nil
-}
-
-func nextID(bookings []Booking) int {
-	maxID := 0
-	for _, booking := range bookings {
-		if booking.ID > maxID {
-			maxID = booking.ID
-		}
-	}
-
-	return maxID + 1
 }
 
 func (s *Service) getByID(id int) (Booking, bool) {
@@ -82,4 +125,13 @@ func (s *Service) getByID(id int) (Booking, bool) {
 	}
 
 	return Booking{}, false
+}
+
+func isValidStatus(status string) bool {
+	switch status {
+	case StatusPending, StatusConfirmed, StatusCancelled, StatusExpired:
+		return true
+	default:
+		return false
+	}
 }

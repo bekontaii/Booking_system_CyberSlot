@@ -6,9 +6,11 @@ import (
 )
 
 type Repository interface {
-	Create(booking Booking) error
+	Create(booking Booking) (Booking, error)
 	GetAll() []Booking
 	UpdateStatus(id int, status string) error
+	Update(booking Booking) error
+	Delete(id int) error
 }
 
 type InMemoryRepository struct {
@@ -20,18 +22,20 @@ func NewInMemoryRepository() *InMemoryRepository {
 	return &InMemoryRepository{bookings: make([]Booking, 0)}
 }
 
-func (r *InMemoryRepository) Create(booking Booking) error {
+func (r *InMemoryRepository) Create(booking Booking) (Booking, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	maxID := 0
 	for _, existing := range r.bookings {
-		if existing.ID == booking.ID {
-			return errors.New("booking id already exists")
+		if existing.ID > maxID {
+			maxID = existing.ID
 		}
 	}
+	booking.ID = maxID + 1
 
 	r.bookings = append(r.bookings, booking)
-	return nil
+	return booking, nil
 }
 
 func (r *InMemoryRepository) GetAll() []Booking {
@@ -50,6 +54,34 @@ func (r *InMemoryRepository) UpdateStatus(id int, status string) error {
 	for i, booking := range r.bookings {
 		if booking.ID == id {
 			r.bookings[i].Status = status
+			return nil
+		}
+	}
+
+	return errors.New("booking not found")
+}
+
+func (r *InMemoryRepository) Update(booking Booking) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i := range r.bookings {
+		if r.bookings[i].ID == booking.ID {
+			r.bookings[i] = booking
+			return nil
+		}
+	}
+
+	return errors.New("booking not found")
+}
+
+func (r *InMemoryRepository) Delete(id int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i, booking := range r.bookings {
+		if booking.ID == id {
+			r.bookings = append(r.bookings[:i], r.bookings[i+1:]...)
 			return nil
 		}
 	}

@@ -1,5 +1,49 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Booking</title></head><body>
-<h1>Booking</h1>
-<div id="root">Use frontend app for full UI.</div>
-</body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Create Booking</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="/static/js/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="site-title">PC Booking System</div>
+      <nav class="site-nav">
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+        <a href="/clubs">Clubs</a>
+        <a href="/booking">Booking</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>Create Booking</h1>
+
+    <form id="booking-form" class="form">
+      <label>
+        PC ID
+        <input type="number" name="pc_id" min="1" required />
+      </label>
+      <label>
+        User ID
+        <input type="number" name="user_id" min="1" required />
+      </label>
+      <label>
+        Start Time
+        <input type="datetime-local" name="start_time" required />
+      </label>
+      <label>
+        End Time
+        <input type="datetime-local" name="end_time" required />
+      </label>
+      <button type="submit">Create Booking</button>
+    </form>
+
+    <div id="booking-message" class="message"></div>
+  </main>
+</body>
+</html>
