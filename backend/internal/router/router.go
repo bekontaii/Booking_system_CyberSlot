@@ -2,6 +2,12 @@ package router
 
 import (
 	"fmt"
+	middleware2 "github.com/bekontaii/Booking_system_CyberSlot/backend/internal/middleware"
+	auth2 "github.com/bekontaii/Booking_system_CyberSlot/backend/internal/modules/auth"
+	booking2 "github.com/bekontaii/Booking_system_CyberSlot/backend/internal/modules/booking"
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/modules/club"
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/modules/pc"
+	user2 "github.com/bekontaii/Booking_system_CyberSlot/backend/internal/modules/user"
 	"html/template"
 	"net/http"
 	"os"
@@ -9,13 +15,6 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/middleware"
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/auth"
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/booking"
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/club"
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/pc"
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 )
 
 func New(db *pgxpool.Pool) http.Handler {
@@ -32,9 +31,9 @@ func New(db *pgxpool.Pool) http.Handler {
 	)
 
 	secret, expireHours := resolveJWTConfig()
-	authRepo := user.NewPostgresRepository(db)
-	authService := auth.NewService(authRepo, secret, expireHours)
-	authHandler := auth.NewHandler(authService)
+	authRepo := user2.NewPostgresRepository(db)
+	authService := auth2.NewService(authRepo, secret, expireHours)
+	authHandler := auth2.NewHandler(authService)
 
 	publicMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		renderTemplate(w, templates, "login.html")
@@ -61,7 +60,7 @@ fetch('/api/logout',{method:'POST',headers:{'Authorization':'Bearer '+localStora
 	})
 
 	authMux := http.NewServeMux()
-	auth.RegisterRoutes(authMux, authService)
+	auth2.RegisterRoutes(authMux, authService)
 	publicMux.Handle("/auth/", http.StripPrefix("/auth", authMux))
 	publicMux.HandleFunc("/api/logout", authHandler.Logout)
 
@@ -70,11 +69,11 @@ fetch('/api/logout',{method:'POST',headers:{'Authorization':'Bearer '+localStora
 	// logout
 	apiMux.HandleFunc("/logout", authHandler.Logout)
 
-	user.RegisterRoutes(apiMux, db)
+	user2.RegisterRoutes(apiMux, db)
 
-	bookingRepo := booking.NewPostgresRepository(db)
-	bookingService := booking.NewService(bookingRepo, booking.DefaultExpiration)
-	bookingHandler := booking.NewHandler(bookingService)
+	bookingRepo := booking2.NewPostgresRepository(db)
+	bookingService := booking2.NewService(bookingRepo, booking2.DefaultExpiration)
+	bookingHandler := booking2.NewHandler(bookingService)
 
 	apiMux.HandleFunc("/bookings", bookingHandler.HandleBookings)
 	apiMux.HandleFunc("/bookings/", bookingHandler.HandleBookingByID)
@@ -88,10 +87,10 @@ fetch('/api/logout',{method:'POST',headers:{'Authorization':'Bearer '+localStora
 	apiMux.Handle("/clubs/", clubMux)
 	apiMux.Handle("/pcs/", pcMux)
 
-	protected := middleware.AuthMiddleware(secret)(apiMux)
+	protected := middleware2.AuthMiddleware(secret)(apiMux)
 	publicMux.Handle("/api/", http.StripPrefix("/api", protected))
 
-	return middleware.Logger(publicMux)
+	return middleware2.Logger(publicMux)
 }
 
 func renderTemplate(w http.ResponseWriter, t *template.Template, name string) {
