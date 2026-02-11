@@ -2,11 +2,10 @@ package user
 
 import (
 	"encoding/json"
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/middleware"
 	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/middleware"
 )
 
 type Handler struct {

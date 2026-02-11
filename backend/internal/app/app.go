@@ -1,14 +1,14 @@
 package app
 
 import (
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/router"
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/storage"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/router"
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/storage"
 	"github.com/joho/godotenv"
 )
 

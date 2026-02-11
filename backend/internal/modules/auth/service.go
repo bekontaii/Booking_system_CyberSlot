@@ -3,19 +3,19 @@ package auth
 import (
 	"context"
 	"errors"
+	user2 "github.com/bekontaii/Booking_system_CyberSlot/backend/internal/modules/user"
 	"time"
 
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
-	repo           user.Repository
+	repo           user2.Repository
 	jwtSecret      string
 	jwtExpireHours int
 }
 
-func NewService(repo user.Repository, secret string, expireHours int) *Service {
+func NewService(repo user2.Repository, secret string, expireHours int) *Service {
 	if expireHours <= 0 {
 		expireHours = 24
 	}
@@ -66,12 +66,12 @@ func (s *Service) Register(ctx context.Context, input RegisterRequest) error {
 		return err
 	}
 
-	_, err = s.repo.Create(user.User{
+	_, err = s.repo.Create(user2.User{
 		Name:         input.Name,
 		Surname:      input.Surname,
 		Email:        input.Email,
 		Username:     input.Username,
-		Role:         user.RoleUser,
+		Role:         user2.RoleUser,
 		PasswordHash: hash,
 		CreatedAt:    time.Now().UTC(),
 	})

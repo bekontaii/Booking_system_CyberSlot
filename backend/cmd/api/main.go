@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/router"
+	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/storage"
 	"log"
 	"net/http"
 	"os"
@@ -10,9 +12,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/bekontaii/Booking_system_CyberSlot/internal/router"
-	storage "github.com/bekontaii/Booking_system_CyberSlot/internal/storage"
 )
 
 func main() {
