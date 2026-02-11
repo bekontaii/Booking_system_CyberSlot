@@ -87,6 +87,18 @@ func (s *Service) Login(ctx context.Context, input LoginRequest) (string, error)
 		return "", errors.New("username or password is empty")
 	}
 
+	s.mu.Lock()
+	user, ok := s.users[input.Username]
+	s.mu.Unlock()
+	if !ok {
+		return "", errors.New("invalid credentials")
+	}
+
+	if err := CheckPasswordHash(input.Password, user.PasswordHash); err != nil {
+		return "", errors.New("invalid credentials")
+	}
+
+	token, err := GenerateToken(user.Username, s.jwtExpireHours, s.jwtSecret)
 	u, err := s.repo.GetByUsername(input.Username)
 	if err != nil {
 		return "", errors.New("invalid credentials")
