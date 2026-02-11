@@ -1,12 +1,8 @@
 package user
 
-import (
-	"github.com/jackc/pgx/v5/pgxpool"
-	"net/http"
-)
+import "net/http"
 
-func RegisterRoutes(mux *http.ServeMux, db *pgxpool.Pool) {
-	repo := NewPostgresRepository(db)
+func RegisterRoutes(mux *http.ServeMux, repo Repository) {
 	service := NewService(repo)
 	handler := NewHandler(service)
 

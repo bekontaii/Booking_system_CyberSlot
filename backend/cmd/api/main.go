@@ -2,8 +2,6 @@ package main
 
 import (
 	"bufio"
-	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/router"
-	"github.com/bekontaii/Booking_system_CyberSlot/backend/internal/storage"
 	"log"
 	"net/http"
 	"os"
@@ -11,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/router"
 )
 
 func main() {
@@ -20,18 +18,7 @@ func main() {
 	addr := resolveAddr()
 	ensureJWTSecret()
 
-	var db *pgxpool.Pool
-
-	if shouldInitDB() {
-		var err error
-		db, err = storage.NewPostgres()
-		if err != nil {
-			log.Fatalf("database connection failed: %v", err)
-		}
-		defer db.Close()
-	}
-
-	handler := router.New(db)
+	handler := router.New()
 
 	srv := &http.Server{
 		Addr:         addr,
@@ -98,8 +85,4 @@ func ensureJWTSecret() {
 
 	log.Println("JWT_SECRET not set; using development default")
 	_ = os.Setenv("JWT_SECRET", "dev-secret")
-}
-
-func shouldInitDB() bool {
-	return strings.TrimSpace(os.Getenv("DB_HOST")) != ""
 }
