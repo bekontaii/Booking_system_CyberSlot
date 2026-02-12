@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/router"
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/storage"
 	"github.com/joho/godotenv"
 )
 
@@ -16,9 +17,15 @@ func RunServer() error {
 	_ = godotenv.Load()
 	addr := resolveAddr()
 
+	db, err := storage.NewPostgres()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(),
+		Handler:      router.New(db),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,

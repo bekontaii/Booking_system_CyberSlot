@@ -4,7 +4,7 @@ import "time"
 
 type CreateBookingRequest struct {
 	PCID      int       `json:"pc_id"`
-	UserID    int       `json:"user_id"`
+	UserID    int       `json:"user_id,omitempty"`
 	StartTime time.Time `json:"start_time"`
 	EndTime   time.Time `json:"end_time"`
 }

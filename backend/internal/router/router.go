@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/middleware"
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/auth"
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/booking"
@@ -17,26 +19,41 @@ import (
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 )
 
-func New() http.Handler {
+func New(db *pgxpool.Pool) http.Handler {
 	secret, expireHours := resolveJWTConfig()
 
-	// Shared in-memory repositories
-	userRepo := user.NewInMemoryRepository()
+	var userRepo user.Repository
+	var bookingRepo booking.Repository
+	if db != nil {
+		userRepo = user.NewPostgresRepository(db)
+		bookingRepo = booking.NewPostgresRepository(db)
+	} else {
+		userRepo = user.NewInMemoryRepository()
+		bookingRepo = booking.NewInMemoryRepository()
+	}
+
+	// Shared repositories
 	authService := auth.NewService(userRepo, secret, expireHours)
 	authHandler := auth.NewHandler(authService)
 
 	userService := user.NewService(userRepo)
 	userHandler := user.NewHandler(userService)
 
-	bookingRepo := booking.NewInMemoryRepository()
 	bookingService := booking.NewService(bookingRepo, booking.DefaultExpiration)
-	bookingHandler := booking.NewHandler(bookingService)
+	bookingHandler := booking.NewHandler(bookingService, userRepo)
 
-	clubRepo := club.NewInMemoryRepository()
+	var clubRepo club.Repository
+	var pcRepo pc.Repository
+	if db != nil {
+		clubRepo = club.NewPostgresRepository(db)
+		pcRepo = pc.NewPostgresRepository(db)
+	} else {
+		clubRepo = club.NewInMemoryRepository()
+		pcRepo = pc.NewInMemoryRepository()
+	}
 	clubService := club.NewService(clubRepo)
 	clubHandler := club.NewHandler(clubService)
 
-	pcRepo := pc.NewInMemoryRepository()
 	pcService := pc.NewService(pcRepo)
 	pcHandler := pc.NewHandler(pcService)
 

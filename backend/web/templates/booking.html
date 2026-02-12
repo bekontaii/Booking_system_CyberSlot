@@ -25,12 +25,16 @@
 
     <form id="booking-form" class="form">
       <label>
-        PC ID
-        <input type="number" name="pc_id" min="1" required />
+        Club
+        <select name="club_id" required>
+          <option value="">Select club</option>
+        </select>
       </label>
       <label>
-        User ID
-        <input type="number" name="user_id" min="1" required />
+        PC
+        <select name="pc_id" required>
+          <option value="">Select PC</option>
+        </select>
       </label>
       <label>
         Start Time
@@ -44,6 +48,21 @@
     </form>
 
     <div id="booking-message" class="message"></div>
+
+    <h2>Bookings</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User ID</th>
+          <th>PC ID</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="bookings-table-body"></tbody>
+    </table>
   </main>
 </body>
 </html>
