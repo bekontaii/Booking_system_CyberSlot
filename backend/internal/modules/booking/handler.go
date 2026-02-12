@@ -5,14 +5,18 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/middleware"
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 )
 
 type Handler struct {
-	service *Service
+	service  *Service
+	userRepo user.Repository
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, userRepo user.Repository) *Handler {
+	return &Handler{service: service, userRepo: userRepo}
 }
 
 func (h *Handler) HandleBookings(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +53,19 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON body"})
 		return
 	}
+
+	username, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || username == "" {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
+		return
+	}
+
+	u, err := h.userRepo.GetByUsername(username)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
+		return
+	}
+	req.UserID = u.ID
 
 	booking, err := h.service.CreateBooking(req)
 	if err != nil {

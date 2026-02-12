@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bekontaii/Booking_system_CyberSlot/internal/router"
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/storage"
 )
 
 func main() {
@@ -18,7 +19,13 @@ func main() {
 	addr := resolveAddr()
 	ensureJWTSecret()
 
-	handler := router.New()
+	db, err := storage.NewPostgres()
+	if err != nil {
+		log.Fatalf("database connection failed: %v", err)
+	}
+	defer db.Close()
+
+	handler := router.New(db)
 
 	srv := &http.Server{
 		Addr:         addr,

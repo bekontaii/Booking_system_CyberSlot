@@ -1,4 +1,4 @@
-function setMessage(el, text, type) {
+п»їfunction setMessage(el, text, type) {
   if (!el) return;
   el.textContent = text || "";
   el.classList.remove("success", "error");
@@ -54,12 +54,12 @@ function initLogin() {
 
     if (result.ok) {
       setToken(result.data.token || "");
-      setMessage(message, "Login успешен. Токен сохранен.", "success");
+      setMessage(message, "Login СѓСЃРїРµС€РµРЅ. РўРѕРєРµРЅ СЃРѕС…СЂР°РЅРµРЅ.", "success");
       form.reset();
       return;
     }
 
-    setMessage(message, result.data.error || "Ошибка входа", "error");
+    setMessage(message, result.data.error || "РћС€РёР±РєР° РІС…РѕРґР°", "error");
   });
 }
 
@@ -86,12 +86,12 @@ function initRegister() {
     });
 
     if (result.ok) {
-      setMessage(message, "Регистрация успешна. Теперь войдите.", "success");
+      setMessage(message, "Р РµРіРёСЃС‚СЂР°С†РёСЏ СѓСЃРїРµС€РЅР°. РўРµРїРµСЂСЊ РІРѕР№РґРёС‚Рµ.", "success");
       form.reset();
       return;
     }
 
-    setMessage(message, result.data.error || "Ошибка регистрации", "error");
+    setMessage(message, result.data.error || "РћС€РёР±РєР° СЂРµРіРёСЃС‚СЂР°С†РёРё", "error");
   });
 }
 
@@ -105,13 +105,13 @@ function initClubs() {
     const result = await apiRequest("/api/clubs", { method: "GET" });
 
     if (!result.ok) {
-      setMessage(message, result.data.error || "Не удалось загрузить клубы", "error");
+      setMessage(message, result.data.error || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РєР»СѓР±С‹", "error");
       return;
     }
 
     const clubs = Array.isArray(result.data) ? result.data : [];
     if (clubs.length === 0) {
-      setMessage(message, "Клубы не найдены", "error");
+      setMessage(message, "РљР»СѓР±С‹ РЅРµ РЅР°Р№РґРµРЅС‹", "error");
       return;
     }
 
@@ -133,6 +133,86 @@ function initBooking() {
   const form = document.getElementById("booking-form");
   if (!form) return;
   const message = document.getElementById("booking-message");
+  const tbody = document.getElementById("bookings-table-body");
+  const clubSelect = form.club_id;
+  const pcSelect = form.pc_id;
+
+  const renderPCOptions = (pcs) => {
+    pcSelect.innerHTML = '<option value="">Select PC</option>';
+    pcs.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = String(item.id);
+      if (item.pc_number) {
+        option.textContent = "PC #" + item.pc_number + " (" + item.status + ")";
+      } else {
+        option.textContent = item.name + " (" + item.cpu + ", " + item.gpu + ")";
+      }
+      pcSelect.appendChild(option);
+    });
+  };
+
+  const loadPCsByClub = async (clubID) => {
+    renderPCOptions([]);
+    if (!clubID) return;
+
+    const result = await apiRequest("/api/clubs/" + clubID + "/pcs", { method: "GET" });
+    if (!result.ok) {
+      setMessage(message, result.data.error || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РєРѕРјРїСЊСЋС‚РµСЂС‹", "error");
+      return;
+    }
+
+    const pcs = Array.isArray(result.data) ? result.data : [];
+    renderPCOptions(pcs);
+  };
+
+  const loadClubs = async () => {
+    const result = await apiRequest("/api/clubs", { method: "GET" });
+    if (!result.ok) {
+      setMessage(message, result.data.error || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РєР»СѓР±С‹", "error");
+      return;
+    }
+
+    const clubs = Array.isArray(result.data) ? result.data : [];
+    clubSelect.innerHTML = '<option value="">Select club</option>';
+    clubs.forEach((club) => {
+      const option = document.createElement("option");
+      option.value = String(club.id);
+      option.textContent = club.name + " - " + club.address;
+      clubSelect.appendChild(option);
+    });
+  };
+
+  const loadBookings = async () => {
+    if (!tbody) return;
+
+    const result = await apiRequest("/api/bookings", { method: "GET" });
+    if (!result.ok) {
+      setMessage(message, result.data.error || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ Р±СЂРѕРЅРёСЂРѕРІР°РЅРёСЏ", "error");
+      return;
+    }
+
+    const bookings = Array.isArray(result.data) ? result.data : [];
+    tbody.innerHTML = "";
+    bookings.forEach((booking) => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${booking.id}</td>
+        <td>${booking.user_id}</td>
+        <td>${booking.pc_id}</td>
+        <td>${new Date(booking.start_time).toLocaleString()}</td>
+        <td>${new Date(booking.end_time).toLocaleString()}</td>
+        <td>${booking.status}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  };
+
+  clubSelect.addEventListener("change", async () => {
+    await loadPCsByClub(clubSelect.value);
+  });
+
+  loadClubs();
+  loadBookings();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -141,13 +221,12 @@ function initBooking() {
     const start = form.start_time.value;
     const end = form.end_time.value;
     if (!start || !end) {
-      setMessage(message, "Укажите время начала и окончания", "error");
+      setMessage(message, "РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ РЅР°С‡Р°Р»Р° Рё РѕРєРѕРЅС‡Р°РЅРёСЏ", "error");
       return;
     }
 
     const payload = {
       pc_id: Number(form.pc_id.value),
-      user_id: Number(form.user_id.value),
       start_time: new Date(start).toISOString(),
       end_time: new Date(end).toISOString(),
     };
@@ -158,12 +237,13 @@ function initBooking() {
     });
 
     if (result.ok) {
-      setMessage(message, "Бронирование создано", "success");
+      setMessage(message, "Р‘СЂРѕРЅРёСЂРѕРІР°РЅРёРµ СЃРѕР·РґР°РЅРѕ", "success");
       form.reset();
+      await loadBookings();
       return;
     }
 
-    setMessage(message, result.data.error || "Ошибка бронирования", "error");
+    setMessage(message, result.data.error || "РћС€РёР±РєР° Р±СЂРѕРЅРёСЂРѕРІР°РЅРёСЏ", "error");
   });
 }
 

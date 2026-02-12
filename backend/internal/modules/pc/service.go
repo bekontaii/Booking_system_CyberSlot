@@ -59,7 +59,7 @@ func (s *Service) DeletePC(id int) error {
 }
 
 func validatePC(pc PC) error {
-	if pc.ClubID <= 0 || pc.Name == "" || pc.RAM <= 0 {
+	if pc.ClubID <= 0 || pc.PCNumber <= 0 {
 		return ErrInvalidPCInput
 	}
 
