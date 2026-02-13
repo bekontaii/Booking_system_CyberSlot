@@ -70,6 +70,48 @@ func (r *PostgresRepository) GetAll() []Booking {
 	return bookings
 }
 
+func (r *PostgresRepository) GetByID(id int) (Booking, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var b Booking
+	err := r.db.QueryRow(ctx, `
+		SELECT id, user_id, pc_id, start_time, end_time, status
+		FROM public.bookings
+		WHERE id = $1
+	`, id).Scan(&b.ID, &b.UserID, &b.PCID, &b.StartTime, &b.EndTime, &b.Status)
+	if err != nil {
+		return Booking{}, false
+	}
+	return b, true
+}
+
+func (r *PostgresRepository) GetByClubID(clubID int) []Booking {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := r.db.Query(ctx, `
+		SELECT b.id, b.user_id, b.pc_id, b.start_time, b.end_time, b.status
+		FROM public.bookings b
+		JOIN public.pcs p ON p.id = b.pc_id
+		WHERE p.club_id = $1
+		ORDER BY b.id
+	`, clubID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		var b Booking
+		if err := rows.Scan(&b.ID, &b.UserID, &b.PCID, &b.StartTime, &b.EndTime, &b.Status); err == nil {
+			bookings = append(bookings, b)
+		}
+	}
+	return bookings
+}
+
 func (r *PostgresRepository) UpdateStatus(id int, status string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

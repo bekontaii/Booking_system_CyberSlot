@@ -20,8 +20,8 @@ func (r *PostgresRepository) Create(user User) (User, error) {
 	defer cancel()
 
 	query := `
-		INSERT INTO public.users (name, surname, email, username, password_hash)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO public.users (name, surname, email, username, password_hash, role, club_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at
 	`
 
@@ -33,6 +33,8 @@ func (r *PostgresRepository) Create(user User) (User, error) {
 		user.Email,
 		user.Username,
 		user.PasswordHash,
+		user.Role,
+		user.ClubID,
 	).Scan(&user.ID, &user.CreatedAt)
 
 	return user, err
@@ -43,7 +45,7 @@ func (r *PostgresRepository) GetAll() ([]User, error) {
 	defer cancel()
 
 	rows, err := r.db.Query(ctx, `
-		SELECT id, name, surname, email, username, created_at
+		SELECT id, name, surname, email, username, role, club_id, created_at
 		FROM public.users
 		ORDER BY id
 	`)
@@ -61,6 +63,8 @@ func (r *PostgresRepository) GetAll() ([]User, error) {
 			&u.Surname,
 			&u.Email,
 			&u.Username,
+			&u.Role,
+			&u.ClubID,
 			&u.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -76,7 +80,7 @@ func (r *PostgresRepository) GetByID(id int) (User, error) {
 
 	var u User
 	query := `
-		SELECT id, name, surname, email, username, created_at
+		SELECT id, name, surname, email, username, role, club_id, created_at
 		FROM public.users
 		WHERE id = $1
 	`
@@ -87,6 +91,8 @@ func (r *PostgresRepository) GetByID(id int) (User, error) {
 		&u.Surname,
 		&u.Email,
 		&u.Username,
+		&u.Role,
+		&u.ClubID,
 		&u.CreatedAt,
 	)
 
@@ -103,7 +109,7 @@ func (r *PostgresRepository) GetByUsername(username string) (User, error) {
 
 	var u User
 	query := `
-		SELECT id, name, surname, email, username, password_hash, created_at
+		SELECT id, name, surname, email, username, role, club_id, password_hash, created_at
 		FROM public.users
 		WHERE username = $1
 	`
@@ -114,6 +120,8 @@ func (r *PostgresRepository) GetByUsername(username string) (User, error) {
 		&u.Surname,
 		&u.Email,
 		&u.Username,
+		&u.Role,
+		&u.ClubID,
 		&u.PasswordHash,
 		&u.CreatedAt,
 	)
@@ -130,8 +138,8 @@ func (r *PostgresRepository) Update(id int, user User) (User, error) {
 
 	query := `
 		UPDATE public.users
-		SET name = $1, surname = $2, email = $3, username = $4
-		WHERE id = $5
+		SET name = $1, surname = $2, email = $3, username = $4, role = $5, club_id = $6
+		WHERE id = $7
 	`
 
 	cmd, err := r.db.Exec(
@@ -141,6 +149,8 @@ func (r *PostgresRepository) Update(id int, user User) (User, error) {
 		user.Surname,
 		user.Email,
 		user.Username,
+		user.Role,
+		user.ClubID,
 		id,
 	)
 	if err != nil {

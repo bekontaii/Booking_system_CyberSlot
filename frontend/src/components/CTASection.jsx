@@ -9,9 +9,10 @@ export default function CTASection() {
           Find available computers in gaming clubs across Kazakhstan, choose the right configuration, and reserve online
         </p>
         <Link className="btn primary" to="/booking">
-          Find a computer →
+          Find a computer
         </Link>
       </div>
     </section>
   );
 }
+

@@ -105,6 +105,9 @@ func (s *Service) UpdateUserPartial(id int, input UpdateUserRequest) (User, erro
 	if input.Role != nil {
 		updated.Role = strings.ToUpper(*input.Role)
 	}
+	if input.ClubID != nil {
+		updated.ClubID = input.ClubID
+	}
 
 	if err := validateUserPartial(updated, input); err != nil {
 		return User{}, err
@@ -125,12 +128,45 @@ func validateUser(user User) error {
 	if user.Name == "" || user.Email == "" {
 		return ErrInvalidUserInput
 	}
+	if user.ClubID != nil && *user.ClubID <= 0 {
+		return ErrInvalidUserInput
+	}
 
 	if user.Role != "" && !isValidRole(user.Role) {
 		return ErrInvalidUserRole
 	}
+	if strings.ToUpper(user.Role) == RoleClubAdmin && user.ClubID == nil {
+		return ErrInvalidUserInput
+	}
+	if strings.ToUpper(user.Role) != RoleClubAdmin && user.ClubID != nil {
+		return ErrInvalidUserInput
+	}
 
 	return nil
+}
+
+func (s *Service) UpdateUserRole(id int, role string, clubID *int) (User, error) {
+	if id <= 0 {
+		return User{}, ErrInvalidUserInput
+	}
+
+	role = strings.ToUpper(strings.TrimSpace(role))
+	if !isValidRole(role) {
+		return User{}, ErrInvalidUserRole
+	}
+
+	existing, err := s.repo.GetByID(id)
+	if err != nil {
+		return User{}, err
+	}
+
+	existing.Role = role
+	existing.ClubID = clubID
+	if err := validateUserPartial(existing, UpdateUserRequest{Role: &role, ClubID: clubID}); err != nil {
+		return User{}, err
+	}
+
+	return s.repo.Update(id, existing)
 }
 
 func validateUserPartial(user User, input UpdateUserRequest) error {
@@ -140,15 +176,27 @@ func validateUserPartial(user User, input UpdateUserRequest) error {
 	if input.Email != nil && user.Email == "" {
 		return ErrInvalidUserInput
 	}
+	if input.ClubID != nil && *input.ClubID <= 0 {
+		return ErrInvalidUserInput
+	}
+	if user.ClubID != nil && *user.ClubID <= 0 {
+		return ErrInvalidUserInput
+	}
 	if user.Role != "" && !isValidRole(user.Role) {
 		return ErrInvalidUserRole
+	}
+	if strings.ToUpper(user.Role) == RoleClubAdmin && user.ClubID == nil {
+		return ErrInvalidUserInput
+	}
+	if strings.ToUpper(user.Role) != RoleClubAdmin && user.ClubID != nil {
+		return ErrInvalidUserInput
 	}
 	return nil
 }
 
 func isValidRole(role string) bool {
 	switch role {
-	case RoleUser, RoleAdmin:
+	case RoleUser, RoleSiteAdmin, RoleClubAdmin:
 		return true
 	default:
 		return false

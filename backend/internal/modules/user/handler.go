@@ -49,6 +49,33 @@ func (h *Handler) HandleUserByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) HandleUserRoleByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	id, err := parseRoleID(r.URL.Path)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid user id"})
+		return
+	}
+
+	var input UpdateUserRoleRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON body"})
+		return
+	}
+
+	updated, err := h.service.UpdateUserRole(id, input.Role, input.ClubID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, updated)
+}
+
 func (h *Handler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -179,5 +206,20 @@ func parseID(path string, prefix string) (int, error) {
 		return 0, strconv.ErrSyntax
 	}
 
+	return strconv.Atoi(idPart)
+}
+
+func parseRoleID(path string) (int, error) {
+	const prefix = "/users/"
+	const suffix = "/role"
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return 0, strconv.ErrSyntax
+	}
+
+	idPart := strings.TrimPrefix(path, prefix)
+	idPart = strings.TrimSuffix(idPart, suffix)
+	if idPart == "" || strings.Contains(idPart, "/") {
+		return 0, strconv.ErrSyntax
+	}
 	return strconv.Atoi(idPart)
 }
