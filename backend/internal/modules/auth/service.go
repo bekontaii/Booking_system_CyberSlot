@@ -96,7 +96,7 @@ func (s *Service) Login(ctx context.Context, input LoginRequest) (string, error)
 		return "", errors.New("invalid credentials")
 	}
 
-	token, err := GenerateToken(u.Username, s.jwtExpireHours, s.jwtSecret)
+	token, err := GenerateToken(u, s.jwtExpireHours, s.jwtSecret)
 	if err != nil {
 		return "", err
 	}

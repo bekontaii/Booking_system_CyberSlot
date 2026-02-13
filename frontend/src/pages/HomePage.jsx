@@ -33,15 +33,15 @@ export default function HomePage() {
     <div className="home">
       <HeroSection
         title="Public Computer Club Booking Platform in Kazakhstan"
-        description="Make it easy for gamers to book a computer in their favorite gaming club — anytime, anywhere. Our platform allows players to choose a city, select a computer club, pick a specific PC, view real-time availability and tariffs, and reserve gaming time online in just a few clicks.\n\nShare your booking link across the web, attract new players, reduce manual work for administrators, and increase club occupancy with a modern online booking experience."
+        description="Make it easy for gamers to book a computer in their favorite gaming club anytime, anywhere. Our platform allows players to choose a city, select a computer club, pick a specific PC, view real-time availability and tariffs, and reserve gaming time online in just a few clicks. Share your booking link across the web, attract new players, reduce manual work for administrators, and increase club occupancy with a modern online booking experience."
         image="https://senet.cloud/wp-content/uploads/2023/03/outside-booking-applied-1.png"
-        buttonText="Find a computer →"
+        buttonText="Find a computer"
         buttonHref="/booking"
       />
 
       <HeroSection
         title="Online Computer Reservation"
-        description="Reserve any computer or gaming zone in advance with full transparency. Our system shows which PCs are available, which are already booked, and what configurations they offer so every gamer gets exactly the setup they need.\n\nClubs gain a centralized booking system, automated reservations, and better control over schedules, while players enjoy fast, reliable, and hassle-free booking."
+        description="Reserve any computer or gaming zone in advance with full transparency. Our system shows which PCs are available, which are already booked, and what configurations they offer so every gamer gets exactly the setup they need. Clubs gain a centralized booking system, automated reservations, and better control over schedules, while players enjoy fast, reliable, and hassle-free booking."
         image="https://senet.cloud/wp-content/uploads/2023/03/frame4381.svg"
         reverse
       />
@@ -64,7 +64,7 @@ export default function HomePage() {
                 Perfect for popular online games and casual sessions.
               </p>
               <Link className="club-choice-link" to="/booking">
-                Choose →
+                Choose
               </Link>
             </article>
             <article className="club-choice-card" style={{ '--delay': '120ms' }}>
@@ -78,7 +78,7 @@ export default function HomePage() {
                 High FPS, professional peripherals, and maximum comfort.
               </p>
               <Link className="club-choice-link" to="/booking">
-                Choose →
+                Choose
               </Link>
             </article>
             <article className="club-choice-card" style={{ '--delay': '240ms' }}>
@@ -92,7 +92,7 @@ export default function HomePage() {
                 Maximum performance, comfort, and exclusive gaming experience.
               </p>
               <Link className="club-choice-link" to="/booking">
-                Choose →
+                Choose
               </Link>
             </article>
           </div>

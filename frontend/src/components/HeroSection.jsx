@@ -10,15 +10,17 @@ export default function HeroSection({
   buttonText,
   buttonHref,
 }) {
-  const content = description.split('\n\n').map((text) => text.trim()).filter(Boolean);
+  const normalizedDescription = String(description || '')
+    .replace(/\\n\\n/g, ' ')
+    .replace(/\n\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   return (
     <section className={`hero-section ${reverse ? 'reverse' : ''}`}>
       <div className="hero-content">
         <h1>{title}</h1>
-        {content.map((paragraph, index) => (
-          <p key={index}>{paragraph}</p>
-        ))}
+        <p>{normalizedDescription}</p>
         {buttonText && buttonHref && (
           <Link className="btn primary" to={buttonHref}>
             {buttonText}

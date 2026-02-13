@@ -8,6 +8,8 @@ import (
 type Repository interface {
 	Create(booking Booking) (Booking, error)
 	GetAll() []Booking
+	GetByID(id int) (Booking, bool)
+	GetByClubID(clubID int) []Booking
 	UpdateStatus(id int, status string) error
 	Update(booking Booking) error
 	Delete(id int) error
@@ -45,6 +47,29 @@ func (r *InMemoryRepository) GetAll() []Booking {
 	copyBookings := make([]Booking, len(r.bookings))
 	copy(copyBookings, r.bookings)
 	return copyBookings
+}
+
+func (r *InMemoryRepository) GetByID(id int) (Booking, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, b := range r.bookings {
+		if b.ID == id {
+			return b, true
+		}
+	}
+	return Booking{}, false
+}
+
+func (r *InMemoryRepository) GetByClubID(clubID int) []Booking {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// In-memory booking repository has no relation to clubs.
+	_ = clubID
+	out := make([]Booking, len(r.bookings))
+	copy(out, r.bookings)
+	return out
 }
 
 func (r *InMemoryRepository) UpdateStatus(id int, status string) error {

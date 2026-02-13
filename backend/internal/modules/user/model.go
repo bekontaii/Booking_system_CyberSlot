@@ -3,8 +3,9 @@ package user
 import "time"
 
 const (
-	RoleUser  = "USER"
-	RoleAdmin = "ADMIN"
+	RoleUser      = "USER"
+	RoleClubAdmin = "CLUB_ADMIN"
+	RoleSiteAdmin = "SITE_ADMIN"
 )
 
 type User struct {
@@ -14,6 +15,7 @@ type User struct {
 	Username     string    `json:"username"`
 	Email        string    `json:"email"`
 	Role         string    `json:"role"`
+	ClubID       *int      `json:"club_id,omitempty"`
 	PasswordHash string    `json:"password"`
 	CreatedAt    time.Time `json:"created_at"`
 }

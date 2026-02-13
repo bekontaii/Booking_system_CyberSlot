@@ -10,24 +10,33 @@ var (
 	ErrBookingConflict  = errors.New("booking conflict")
 	ErrBookingNotFound  = errors.New("booking not found")
 	ErrInvalidStatus    = errors.New("invalid booking status")
+	ErrClubInactive     = errors.New("Club is currently inactive")
 )
+
+type PCClubAvailabilityChecker interface {
+	IsPCBookable(pcID int) bool
+}
 
 type Service struct {
 	repo        Repository
 	expireAfter time.Duration
+	checker     PCClubAvailabilityChecker
 }
 
-func NewService(repo Repository, expireAfter time.Duration) *Service {
+func NewService(repo Repository, checker PCClubAvailabilityChecker, expireAfter time.Duration) *Service {
 	if expireAfter <= 0 {
 		expireAfter = DefaultExpiration
 	}
 
-	return &Service{repo: repo, expireAfter: expireAfter}
+	return &Service{repo: repo, checker: checker, expireAfter: expireAfter}
 }
 
 func (s *Service) CreateBooking(request CreateBookingRequest) (Booking, error) {
 	if err := validateTimeRange(request.StartTime, request.EndTime); err != nil {
 		return Booking{}, err
+	}
+	if s.checker != nil && !s.checker.IsPCBookable(request.PCID) {
+		return Booking{}, ErrClubInactive
 	}
 
 	existing := s.repo.GetAll()
@@ -54,6 +63,20 @@ func (s *Service) CreateBooking(request CreateBookingRequest) (Booking, error) {
 
 func (s *Service) GetAllBookings() []Booking {
 	return s.repo.GetAll()
+}
+
+func (s *Service) GetBookingsByClub(clubID int) []Booking {
+	if clubID <= 0 {
+		return nil
+	}
+	return s.repo.GetByClubID(clubID)
+}
+
+func (s *Service) GetBookingByID(id int) (Booking, bool) {
+	if id <= 0 {
+		return Booking{}, false
+	}
+	return s.repo.GetByID(id)
 }
 
 func (s *Service) UpdateBooking(id int, request UpdateBookingRequest) (Booking, error) {
@@ -117,14 +140,7 @@ func validateTimeRange(start, end time.Time) error {
 }
 
 func (s *Service) getByID(id int) (Booking, bool) {
-	bookings := s.repo.GetAll()
-	for _, booking := range bookings {
-		if booking.ID == id {
-			return booking, true
-		}
-	}
-
-	return Booking{}, false
+	return s.repo.GetByID(id)
 }
 
 func isValidStatus(status string) bool {

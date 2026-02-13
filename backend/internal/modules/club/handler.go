@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/middleware"
+	"github.com/bekontaii/Booking_system_CyberSlot/internal/modules/user"
 )
 
 type Handler struct {
@@ -62,7 +65,22 @@ func (h *Handler) createClub(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listClubs(w http.ResponseWriter, r *http.Request) {
-	clubs, err := h.service.GetClubs()
+	includeInactive := strings.EqualFold(r.URL.Query().Get("include_inactive"), "true")
+
+	var (
+		clubs []Club
+		err   error
+	)
+	if includeInactive {
+		authUser, ok := middleware.GetAuthUser(r.Context())
+		if !ok || authUser.Role != user.RoleSiteAdmin {
+			writeJSON(w, http.StatusForbidden, ErrorResponse{Error: "forbidden"})
+			return
+		}
+		clubs, err = h.service.GetClubsForAdmin()
+	} else {
+		clubs, err = h.service.GetClubs()
+	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "unable to fetch clubs"})
 		return
@@ -106,6 +124,48 @@ func (h *Handler) deleteClub(w http.ResponseWriter, r *http.Request, id int) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handler) HandleActivateClub(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	id, err := parseActionID(r.URL.Path, "/clubs/", "/activate")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid club id"})
+		return
+	}
+
+	club, err := h.service.ActivateClub(id)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, club)
+}
+
+func (h *Handler) HandleDeactivateClub(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	id, err := parseActionID(r.URL.Path, "/clubs/", "/deactivate")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid club id"})
+		return
+	}
+
+	club, err := h.service.DeactivateClub(id)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, club)
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
@@ -133,6 +193,20 @@ func parseID(path string, prefix string) (int, error) {
 	}
 
 	idPart := strings.TrimPrefix(path, prefix)
+	if idPart == "" || strings.Contains(idPart, "/") {
+		return 0, strconv.ErrSyntax
+	}
+
+	return strconv.Atoi(idPart)
+}
+
+func parseActionID(path, prefix, suffix string) (int, error) {
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return 0, strconv.ErrSyntax
+	}
+
+	idPart := strings.TrimPrefix(path, prefix)
+	idPart = strings.TrimSuffix(idPart, suffix)
 	if idPart == "" || strings.Contains(idPart, "/") {
 		return 0, strconv.ErrSyntax
 	}

@@ -22,10 +22,10 @@ func (r *PostgresRepository) Create(club Club) (Club, error) {
 	query := `
 		INSERT INTO public.clubs (name, city, address)
 		VALUES ($1, $2, $3)
-		RETURNING id
+		RETURNING id, is_active
 	`
 
-	err := r.db.QueryRow(ctx, query, club.Name, club.City, club.Address).Scan(&club.ID)
+	err := r.db.QueryRow(ctx, query, club.Name, club.City, club.Address).Scan(&club.ID, &club.IsActive)
 	return club, err
 }
 
@@ -34,7 +34,7 @@ func (r *PostgresRepository) GetAll() ([]Club, error) {
 	defer cancel()
 
 	rows, err := r.db.Query(ctx, `
-		SELECT id, name, city, address
+		SELECT id, name, city, address, is_active
 		FROM public.clubs
 		ORDER BY id
 	`)
@@ -46,7 +46,34 @@ func (r *PostgresRepository) GetAll() ([]Club, error) {
 	clubs := make([]Club, 0)
 	for rows.Next() {
 		var c Club
-		if err := rows.Scan(&c.ID, &c.Name, &c.City, &c.Address); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.City, &c.Address, &c.IsActive); err != nil {
+			return nil, err
+		}
+		clubs = append(clubs, c)
+	}
+
+	return clubs, nil
+}
+
+func (r *PostgresRepository) GetActive() ([]Club, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := r.db.Query(ctx, `
+		SELECT id, name, city, address, is_active
+		FROM public.clubs
+		WHERE is_active = true
+		ORDER BY id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	clubs := make([]Club, 0)
+	for rows.Next() {
+		var c Club
+		if err := rows.Scan(&c.ID, &c.Name, &c.City, &c.Address, &c.IsActive); err != nil {
 			return nil, err
 		}
 		clubs = append(clubs, c)
@@ -62,9 +89,9 @@ func (r *PostgresRepository) GetByID(id int) (Club, error) {
 	var c Club
 	err := r.db.QueryRow(
 		ctx,
-		`SELECT id, name, city, address FROM public.clubs WHERE id = $1`,
+		`SELECT id, name, city, address, is_active FROM public.clubs WHERE id = $1`,
 		id,
-	).Scan(&c.ID, &c.Name, &c.City, &c.Address)
+	).Scan(&c.ID, &c.Name, &c.City, &c.Address, &c.IsActive)
 	if err != nil {
 		return Club{}, ErrClubNotFound
 	}
@@ -92,7 +119,30 @@ func (r *PostgresRepository) Update(id int, club Club) (Club, error) {
 	}
 
 	club.ID = id
+	current, err := r.GetByID(id)
+	if err != nil {
+		return Club{}, err
+	}
+	club.IsActive = current.IsActive
 	return club, nil
+}
+
+func (r *PostgresRepository) SetActive(id int, isActive bool) (Club, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var c Club
+	err := r.db.QueryRow(
+		ctx,
+		`UPDATE public.clubs SET is_active = $1 WHERE id = $2 RETURNING id, name, city, address, is_active`,
+		isActive,
+		id,
+	).Scan(&c.ID, &c.Name, &c.City, &c.Address, &c.IsActive)
+	if err != nil {
+		return Club{}, ErrClubNotFound
+	}
+
+	return c, nil
 }
 
 func (r *PostgresRepository) Delete(id int) error {
@@ -109,4 +159,3 @@ func (r *PostgresRepository) Delete(id int) error {
 
 	return nil
 }
-
