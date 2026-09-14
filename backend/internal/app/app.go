@@ -19,9 +19,13 @@ func RunServer() error {
 
 	db, err := storage.NewPostgres()
 	if err != nil {
-		return err
+		log.Printf("PostgreSQL connection failed: %v", err)
+		log.Println("Starting server in in-memory mode (fallback/demo)...")
+		db = nil
+	} else {
+		defer db.Close()
+		log.Println("Connected to PostgreSQL successfully")
 	}
-	defer db.Close()
 
 	srv := &http.Server{
 		Addr:         addr,

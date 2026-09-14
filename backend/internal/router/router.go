@@ -42,6 +42,7 @@ func New(db *pgxpool.Pool) http.Handler {
 		clubRepo = club.NewInMemoryRepository()
 		pcRepo = pc.NewInMemoryRepository()
 		clubChecker = booking.NewInMemoryPCClubChecker()
+		seedInMemoryData(userRepo, clubRepo, pcRepo)
 	}
 
 	authService := auth.NewService(userRepo, secret, expireHours)
@@ -157,6 +158,11 @@ location='/login';
 
 	appDir := filepath.Join("web", "app")
 	appIndex := filepath.Join(appDir, "index.html")
+	if !fileExists(appIndex) {
+		appDir = filepath.Join("backend", "web", "app")
+		appIndex = filepath.Join(appDir, "index.html")
+	}
+
 	if fileExists(appIndex) {
 		fileServer := http.FileServer(http.Dir(appDir))
 		publicMux.Handle("/assets/", fileServer)
@@ -164,7 +170,11 @@ location='/login';
 		publicMux.Handle("/favicon.ico", fileServer)
 		publicMux.Handle("/", serveSPA(appIndex, appDir))
 	} else {
-		templates := template.Must(template.ParseGlob(filepath.Join("web", "templates", "*.html")))
+		tmplPath := filepath.Join("web", "templates", "*.html")
+		if matches, _ := filepath.Glob(tmplPath); len(matches) == 0 {
+			tmplPath = filepath.Join("backend", "web", "templates", "*.html")
+		}
+		templates := template.Must(template.ParseGlob(tmplPath))
 		publicMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/" {
 				http.NotFound(w, r)
@@ -186,7 +196,64 @@ location='/login';
 		})
 	}
 
-	return middleware.Logger(publicMux)
+	return corsMiddleware(middleware.Logger(publicMux))
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func seedInMemoryData(userRepo user.Repository, clubRepo club.Repository, pcRepo pc.Repository) {
+	adminHash, _ := auth.HashPassword("admin123")
+	_, _ = userRepo.Create(user.User{
+		Name:         "Admin",
+		Surname:      "System",
+		Email:        "admin@cyberslot.kz",
+		Username:     "admin",
+		Role:         user.RoleSiteAdmin,
+		PasswordHash: adminHash,
+	})
+
+	playerHash, _ := auth.HashPassword("user123")
+	_, _ = userRepo.Create(user.User{
+		Name:         "Player",
+		Surname:      "One",
+		Email:        "player@cyberslot.kz",
+		Username:     "player",
+		Role:         user.RoleUser,
+		PasswordHash: playerHash,
+	})
+
+	clubs := []club.Club{
+		{Name: "Top Game", City: "Astana", Address: "Astana, Dinmukhamed Kunayev Street 23", IsActive: true},
+		{Name: "BRO", City: "Astana", Address: "Astana, Kuishi Dina Street 31", IsActive: true},
+		{Name: "Xan.exe", City: "Astana", Address: "Astana, Heydar Aliyev Street 3", IsActive: true},
+		{Name: "Prime Game Hub", City: "Astana", Address: "Astana, Kerei and Zhanibek Khandar Street 14/2", IsActive: true},
+		{Name: "Yamato Cyber Club", City: "Astana", Address: "Astana, Syganak Street 21/1", IsActive: true},
+	}
+
+	for _, c := range clubs {
+		created, err := clubRepo.Create(c)
+		if err != nil {
+			continue
+		}
+		for i := 1; i <= 10; i++ {
+			_, _ = pcRepo.Create(pc.PC{
+				ClubID:   created.ID,
+				PCNumber: i,
+				Status:   pc.StatusActive,
+			})
+		}
+	}
 }
 
 func serveSPA(indexPath, appDir string) http.HandlerFunc {

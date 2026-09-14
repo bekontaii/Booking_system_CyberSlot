@@ -15,15 +15,20 @@ import (
 
 func main() {
 	loadEnvFile(".env")
+	loadEnvFile("backend/.env")
 
 	addr := resolveAddr()
 	ensureJWTSecret()
 
 	db, err := storage.NewPostgres()
 	if err != nil {
-		log.Fatalf("database connection failed: %v", err)
+		log.Printf("PostgreSQL connection failed: %v", err)
+		log.Println("Starting server in in-memory mode (fallback/demo)...")
+		db = nil
+	} else {
+		defer db.Close()
+		log.Println("Connected to PostgreSQL successfully")
 	}
-	defer db.Close()
 
 	handler := router.New(db)
 
